@@ -56,6 +56,27 @@ source gives a definition.
     template asks for, write `[NOT COVERED IN THIS CHAPTER]`. Do
     not fill gaps from your training data.
 
+11. **Merged cells in tables**: if a cell appears empty/blank but
+    is adjacent to a populated cell with values that logically span
+    multiple rows or columns, the source is using a merged-cell
+    layout. Reproduce the merged value in every spanned cell of the
+    flat markdown table. Add a footnote noting the merge. Do NOT
+    mark merged cells as `[UNCLEAR]`.
+
+12. **Figures with structured content**: figures that contain
+    numeric mappings, axis values, discrete bands, or label-to-
+    value pairs are STRUCTURED CONTENT, not decorative. Extract
+    them as markdown tables or lists matching the source structure.
+    Treat figures like tables — they are not optional. If a figure
+    contains "RPE 1 = 16 hours" and similar mappings, every such
+    pair must appear in the extraction.
+
+13. **Pull-quote callouts and sidebar marginalia**: list these in
+    a dedicated subsection labeled "Emphasized concepts (pull-quote
+    callouts)" with page citations. Even when the callout restates
+    body text, the fact that the author chose to emphasize it is
+    metadata worth preserving.
+
 ## OUTPUT FORMAT
 
 Return only the markdown file content. No preamble, no postamble,
