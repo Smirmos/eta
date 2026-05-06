@@ -1,0 +1,37 @@
+{
+  "name": "eta",
+  "private": true,
+  "type": "module",
+  "version": "0.0.0",
+  "description": "Endurance Training App — pnpm monorepo",
+  "engines": {
+    "node": ">=20",
+    "pnpm": ">=9"
+  },
+  "scripts": {
+    "dev:api": "pnpm --filter @eta/api dev",
+    "build": "pnpm -r run build",
+    "test": "pnpm -r run test",
+    "lint": "eslint \"{apps,packages}/**/*.{ts,tsx}\" --max-warnings 0",
+    "format": "prettier --write \"**/*.{ts,tsx,js,cjs,mjs,json,md,yml,yaml}\"",
+    "format:check": "prettier --check \"**/*.{ts,tsx,js,cjs,mjs,json,md,yml,yaml}\"",
+    "db:up": "docker compose up -d postgres",
+    "db:down": "docker compose down",
+    "typecheck": "pnpm -r run typecheck"
+  },
+  "devDependencies": {
+    "@typescript-eslint/eslint-plugin": "^7.18.0",
+    "@typescript-eslint/parser": "^7.18.0",
+    "eslint": "^8.57.0",
+    "eslint-config-prettier": "^9.1.0",
+    "prettier": "^3.3.3",
+    "typescript": "^5.6.3"
+  },
+  "pnpm": {
+    "onlyBuiltDependencies": [
+      "@nestjs/core",
+      "@swc/core",
+      "esbuild"
+    ]
+  }
+}

@@ -1,11 +1,111 @@
-# ETA Knowledge Base — Extraction Playbook
+# ETA — Endurance Training App
 
-This is the handoff package for extracting the Friel methodology
-into a structured knowledge base, run via Claude Code.
+A pnpm monorepo for the Endurance Training App. The backend
+(`apps/api/`) generates Friel-methodology triathlon training plans by
+querying a structured knowledge base (`knowledge-base/`) extracted from
+_The Triathlete's Training Bible_ (5th ed.).
 
-## Goal
+## Project layout
 
-Convert ~130 pages of *The Triathlete's Training Bible* (5th ed.)
+```
+eta/
+├── apps/
+│   └── api/                  ← NestJS + Fastify backend (Drizzle ORM, Postgres)
+├── packages/
+│   └── shared-types/         ← TypeScript types shared between apps and clients
+├── knowledge-base/           ← RAG corpus (5 markdown files); the plan generator reads from here at runtime
+├── prompts/                  ← Extraction prompt template (used by Claude Code to build the KB)
+├── sources/                  ← Source PDFs (Friel 5e). Read-only.
+├── docker-compose.yml        ← Local Postgres 16
+├── pnpm-workspace.yaml
+├── package.json              ← root scripts and dev tooling
+└── tsconfig.base.json        ← shared TypeScript config
+```
+
+The `knowledge-base/`, `prompts/`, and `sources/` directories were
+populated by the extraction playbook (see [Knowledge-base extraction](#knowledge-base-extraction)
+below). They are committed and read-only — `apps/api/` will read from
+`knowledge-base/` at runtime.
+
+---
+
+## Development
+
+### Prerequisites
+
+- Node.js 20+
+- pnpm 9+ (`corepack enable` recommended)
+- Docker (for local Postgres)
+
+### Setup
+
+```bash
+# 1. Install workspace dependencies
+pnpm install
+
+# 2. Create your local env file
+cp .env.example .env
+# edit .env and set POSTGRES_PASSWORD (and matching DATABASE_URL)
+
+# 3. Start Postgres
+pnpm db:up
+
+# 4. Run the API in dev mode
+pnpm dev:api
+# → API listens on http://localhost:3000
+# → GET /health returns { "status": "ok" }
+```
+
+### Useful scripts (run from repo root)
+
+| Script              | What it does                                          |
+| ------------------- | ----------------------------------------------------- |
+| `pnpm dev:api`      | Start `apps/api` in watch mode (SWC + Node `--watch`) |
+| `pnpm build`        | Recursive build across all workspace packages         |
+| `pnpm test`         | Recursive test across all workspace packages (Vitest) |
+| `pnpm typecheck`    | Recursive `tsc --noEmit`                              |
+| `pnpm lint`         | ESLint over all `apps/*` and `packages/*` source      |
+| `pnpm format`       | Prettier write                                        |
+| `pnpm format:check` | Prettier check (CI mode)                              |
+| `pnpm db:up`        | `docker compose up -d postgres`                       |
+| `pnpm db:down`      | `docker compose down`                                 |
+
+### Run tests
+
+```bash
+pnpm test
+```
+
+Vitest runs from each workspace package's `test` script. The API
+package uses Vitest in `--passWithNoTests` mode until tests land.
+
+### Drizzle (migrations)
+
+Run from `apps/api/`:
+
+```bash
+pnpm db:generate    # generate SQL migration from schema diff
+pnpm db:migrate     # apply pending migrations
+pnpm db:studio      # open Drizzle Studio
+```
+
+Schema files live in `apps/api/src/db/schema/`. Generated SQL goes to
+`apps/api/drizzle/`.
+
+---
+
+## Knowledge-base extraction
+
+The `knowledge-base/` directory was built by a one-time extraction
+playbook (run via Claude Code). The remainder of this README is the
+playbook for re-running the extraction or extending it to additional
+chapters.
+
+---
+
+## Goal (extraction)
+
+Convert ~130 pages of _The Triathlete's Training Bible_ (5th ed.)
 into 5 structured markdown files that the plan generator will cite
 from. Each file is a "page" of the knowledge base.
 
@@ -87,13 +187,13 @@ Do not paraphrase. Cite page numbers verbatim. Flag ambiguity.
 
 Page ranges to use:
 
-| Chapter | Pages | Output file |
-|---|---|---|
-| Ch. 4: Training Intensity | 80–96 | `01-zones.md` |
-| Ch. 7: Planning a Season | 157–188 | `02-atp-structure.md` |
-| Appendices B/C/D/E | 445–481 | `03-workouts.md` |
-| Ch. 8: Planning a Week | 194–237 | `04-weekly-templates.md` |
-| Ch. 11: Rest and Recovery | 280–300 | `05-recovery.md` |
+| Chapter                   | Pages   | Output file              |
+| ------------------------- | ------- | ------------------------ |
+| Ch. 4: Training Intensity | 80–96   | `01-zones.md`            |
+| Ch. 7: Planning a Season  | 157–188 | `02-atp-structure.md`    |
+| Appendices B/C/D/E        | 445–481 | `03-workouts.md`         |
+| Ch. 8: Planning a Week    | 194–237 | `04-weekly-templates.md` |
+| Ch. 11: Rest and Recovery | 280–300 | `05-recovery.md`         |
 
 Page numbers above are the **PDF page numbers** (not the printed
 book page numbers). They came from the PDF outline/bookmarks of
@@ -190,13 +290,13 @@ careful with audits.
 
 When done with each chapter, update the corresponding Jira task:
 
-| Chapter | Jira ticket |
-|---|---|
-| Ch. 4 zones | ETA-8 |
-| Appendices B/C/D/E workouts | ETA-9 |
-| Ch. 7 ATP | ETA-7 |
-| Ch. 8 templates | ETA-10 |
-| Ch. 11 recovery | ETA-11 + ETA-12 |
+| Chapter                     | Jira ticket     |
+| --------------------------- | --------------- |
+| Ch. 4 zones                 | ETA-8           |
+| Appendices B/C/D/E workouts | ETA-9           |
+| Ch. 7 ATP                   | ETA-7           |
+| Ch. 8 templates             | ETA-10          |
+| Ch. 11 recovery             | ETA-11 + ETA-12 |
 
 Move tickets to "Done" as you go. Drop a comment with the commit
 SHA of the extraction.

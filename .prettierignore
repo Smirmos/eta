@@ -1,0 +1,17 @@
+# Read-only content — DO NOT REFORMAT
+knowledge-base/
+prompts/
+sources/
+
+# Build artifacts
+node_modules/
+dist/
+coverage/
+**/drizzle/
+.eslintcache
+
+# Lockfiles
+pnpm-lock.yaml
+
+# Claude
+.claude/
