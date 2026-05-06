@@ -1,3 +1,2 @@
-// Shared types between apps/api and future clients.
-// Types will be added in ETA-13 (AthleteProfile, plan engine inputs/outputs, etc.).
-export {};
+export * from './athlete-profile.js';
+export * from './athlete-profile.schema.js';

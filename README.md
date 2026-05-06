@@ -46,6 +46,7 @@ pnpm install
 # 2. Create your local env file
 cp .env.example .env
 # edit .env and set POSTGRES_PASSWORD (and matching DATABASE_URL)
+# if 5432 is already used, set POSTGRES_PORT to another value (for example 5433)
 
 # 3. Start Postgres
 pnpm db:up
@@ -69,6 +70,10 @@ pnpm dev:api
 | `pnpm format:check` | Prettier check (CI mode)                              |
 | `pnpm db:up`        | `docker compose up -d postgres`                       |
 | `pnpm db:down`      | `docker compose down`                                 |
+
+`POSTGRES_PORT` controls which host port maps to container port `5432`.
+If you run multiple local projects, give each project a unique host port
+and keep `DATABASE_URL` in sync (for example, `localhost:5433`).
 
 ### Run tests
 

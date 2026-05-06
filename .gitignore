@@ -23,8 +23,7 @@ yarn-debug.log*
 yarn-error.log*
 pnpm-debug.log*
 
-# drizzle generated metadata
-**/drizzle/meta/
+# drizzle metadata is committed (authoritative migration history)
 
 # coverage
 coverage/
