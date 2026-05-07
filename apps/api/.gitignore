@@ -1,3 +1,4 @@
 scripts/output/*.json
 scripts/output/*.txt
+scripts/output/*.html
 scripts/test-profile.json
