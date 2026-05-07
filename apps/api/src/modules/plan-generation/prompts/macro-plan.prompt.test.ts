@@ -152,6 +152,13 @@ describe('buildMacroPlanPrompt', () => {
     expect(MACRO_PLAN_SYSTEM_PROMPT).toContain('B/AE1 (Recovery');
   });
 
+  it('system prompt includes rule 10 LONG SESSION DAY ENFORCEMENT', () => {
+    expect(MACRO_PLAN_SYSTEM_PROMPT).toContain('10. LONG SESSION DAY ENFORCEMENT');
+    expect(MACRO_PLAN_SYSTEM_PROMPT).toContain('C/AE2 (Aerobic Endurance — long bike)');
+    expect(MACRO_PLAN_SYSTEM_PROMPT).toContain('D/AE2 (Aerobic Endurance — long run)');
+    expect(MACRO_PLAN_SYSTEM_PROMPT).toContain('Do NOT add a third long session');
+  });
+
   it('system prompt does not reference workout codes that do not exist in the KB allowlist', () => {
     // Regression guard: prior versions referenced B/E1, B/M1, B/M2 which are
     // not in WORKOUT_CODES — the LLM hallucinated them as a result.

@@ -173,7 +173,32 @@ CORE RULES (non-negotiable):
      substitutes.
    - Surface this in week notes: "Week N includes a breakthrough
      swim per the limiter-discipline rule (athlete swim history
-     X% of total)."`;
+     X% of total)."
+
+10. LONG SESSION DAY ENFORCEMENT.
+    "Long sessions" are breakthrough endurance workouts in these
+    workout-code families:
+    - C/AE2 (Aerobic Endurance — long bike)
+    - D/AE2 (Aerobic Endurance — long run)
+    - E/AE1 (Aerobic Endurance Brick — long bike-run brick)
+
+    EVERY long session MUST land on a day in the athlete's
+    profile.longSessionDays. No exceptions.
+
+    Each week should normally contain ONE long bike (C/AE2) and
+    ONE long run (D/AE2 or equivalent), placed on the two days
+    in profile.longSessionDays.
+
+    If a phase calls for higher endurance volume than fits in two
+    long sessions per week:
+    - INCREASE the duration of the existing long bike or long run, OR
+    - Increase the durations of mid-week shorter endurance sessions
+      (these can land on any non-rest day).
+    - Do NOT add a third long session on a non-longSessionDays day.
+
+    If profile.longSessionDays has fewer than two practical slots
+    in a given week (e.g., race week), reduce to one long session
+    that week and flag with [DEVIATION:].`;
 
 const DAY_NAME_BY_INDEX: Record<number, string> = {
   0: 'Sunday',

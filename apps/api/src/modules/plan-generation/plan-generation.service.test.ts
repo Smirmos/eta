@@ -238,20 +238,31 @@ describe('PlanGenerationService', () => {
 });
 
 describe('isLongSessionWorkout', () => {
-  it('flags AE2/E2 family codes as long sessions', () => {
+  it('flags canonical long-session codes (C/AE2, D/AE2, E/AE*)', () => {
     expect(isLongSessionWorkout('C/AE2')).toBe(true);
     expect(isLongSessionWorkout('D/AE2')).toBe(true);
     expect(isLongSessionWorkout('E/AE1')).toBe(true);
   });
 
-  it('does not flag short or skill sessions by code alone', () => {
+  it('does not flag short or skill or interval sessions', () => {
     expect(isLongSessionWorkout('B/SS1')).toBe(false);
     expect(isLongSessionWorkout('C/T1')).toBe(false);
     expect(isLongSessionWorkout('D/AC1')).toBe(false);
   });
 
-  it('also flags sessions whose rationale text contains "long"', () => {
-    expect(isLongSessionWorkout('D/AE1', 'long easy run, build aerobic base')).toBe(true);
+  // Regression guard: B/ME1 is named "Long Cruise Intervals" in the KB
+  // but is a threshold-pace interval workout (~1h), not a long-session
+  // breakthrough. An earlier rationale-text regex caused this false positive.
+  it('does not flag B/ME1 (interval workout whose KB name contains "Long")', () => {
+    expect(isLongSessionWorkout('B/ME1')).toBe(false);
+    expect(isLongSessionWorkout('D/ME1')).toBe(false);
+  });
+
+  it('does not flag fabricated codes that no longer exist in the prefix list', () => {
+    // B/E2, C/E2, D/E2 were fabrications removed when verifying against the KB.
+    expect(isLongSessionWorkout('B/E2')).toBe(false);
+    expect(isLongSessionWorkout('C/E2')).toBe(false);
+    expect(isLongSessionWorkout('D/E2')).toBe(false);
   });
 });
 

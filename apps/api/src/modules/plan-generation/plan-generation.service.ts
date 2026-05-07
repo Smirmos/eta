@@ -46,25 +46,19 @@ export class PlanGenerationError extends Error {
   }
 }
 
-// Heuristic: workout codes that represent breakthrough endurance sessions
-// (long ride, long run, long aerobic brick). These MUST land on a
-// longSessionDay per the athlete's profile. Add codes here as the KB
-// taxonomy grows; refine in a follow-up if the heuristic produces false
-// positives/negatives in real plans.
-const LONG_SESSION_CODE_PREFIXES: readonly string[] = [
-  'B/E2',
-  'C/E2',
-  'D/E2',
-  'C/AE2',
-  'D/AE2',
-  'E/AE',
-];
+// Canonical long-session codes per knowledge-base/03-workouts.md:
+//   C/AE2  Aerobic Endurance (bike) — the long ride
+//   D/AE2  Aerobic Endurance (run) — the long run
+//   E/AE   matches E/AE1 (Aerobic Endurance Brick) — the long brick
+// The earlier B/E2 / C/E2 / D/E2 entries were fabrications; the real
+// codes use the "AE" prefix. The earlier rationale-text regex (/\blong\b/)
+// was removed because it caused false positives on workouts whose KB name
+// contains "Long" (e.g., B/ME1 "Long Cruise Intervals" — a threshold-pace
+// interval workout, NOT a long-session breakthrough).
+const LONG_SESSION_CODE_PREFIXES: readonly string[] = ['C/AE2', 'D/AE2', 'E/AE'];
 
-export function isLongSessionWorkout(workoutCode: string, rationale = ''): boolean {
-  if (LONG_SESSION_CODE_PREFIXES.some((p) => workoutCode.startsWith(p))) return true;
-  // Catch LLM rationale phrasing for explicitly "long" sessions even if the
-  // code prefix list misses them.
-  return /\blong\b/i.test(rationale);
+export function isLongSessionWorkout(workoutCode: string): boolean {
+  return LONG_SESSION_CODE_PREFIXES.some((p) => workoutCode.startsWith(p));
 }
 
 export function validateDayConstraints(plan: MacroPlan, profile: AthleteProfile): void {
@@ -73,7 +67,7 @@ export function validateDayConstraints(plan: MacroPlan, profile: AthleteProfile)
   for (const week of plan.weeks) {
     for (const session of week.keySessions) {
       if (
-        isLongSessionWorkout(session.workoutCode, session.rationale) &&
+        isLongSessionWorkout(session.workoutCode) &&
         !profile.longSessionDays.includes(session.dayOfWeek)
       ) {
         violations.push(
