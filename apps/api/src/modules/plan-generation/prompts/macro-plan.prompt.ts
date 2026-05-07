@@ -23,9 +23,15 @@ type Phase =
 // Use ONLY codes that appear there. Codes are case-sensitive.
 type WorkoutCode = string;
 
+type DayOfWeek = 'mon' | 'tue' | 'wed' | 'thu' | 'fri' | 'sat' | 'sun';
+
 interface KeySession {
   workoutCode: WorkoutCode;
   discipline: Discipline;
+  /** Day this key session is scheduled on. MUST honour the athlete's
+   *  longSessionDays (for long endurance breakthroughs) and avoid
+   *  mandatoryRestDays. Lower-case 3-letter form: 'mon'..'sun'. */
+  dayOfWeek: DayOfWeek;
   /** 1–2 sentences, plain language. */
   rationale: string;
   /** KB reference, e.g. "knowledge-base/02-atp-structure.md#base-3". */
@@ -90,10 +96,30 @@ CORE RULES (non-negotiable):
    workout. Format: "knowledge-base/02-atp-structure.md#base-3"
    or "knowledge-base/03-workouts.md#b-e2".
 
-4. Every phase decision (duration, volume %, key sessions) must
-   trace back to specific KB content. If the KB doesn't cover
-   something the athlete needs, FLAG it in the deviations[] array
-   with format "[DEVIATION: reason]".
+4a. EVERY non-trivial deviation from the KB MUST be flagged in
+    the deviations[] array of the affected MacroPlanWeek, with
+    format "[DEVIATION: <specific reason>]". Examples:
+    - Capping weeklyVolumeHours below the KB-prescribed value:
+      "[DEVIATION: capped weekly hours to 11 per athlete's
+      plannedWeeklyHours; KB Table 7.5 prescribes 13 for Build 2]"
+    - Skipping a phase the KB normally includes:
+      "[DEVIATION: skipped Base 2 per Friel p. 187 — athlete
+      has aerobic base from prior marathon training]"
+
+    NO SILENT DEVIATIONS. If you cap, skip, or modify what the
+    KB prescribes, you MUST surface it.
+
+4b. NO FABRICATED JUSTIFICATIONS. If you place a workout that
+    has KB-stated prerequisites (e.g., D/ME4 requires "at least
+    four of the other ME interval workouts before attempting"
+    per knowledge-base/03-workouts.md p. 472), you must EITHER:
+    - Verify the prerequisites are actually met by previous
+      weeks in this plan (count occurrences), OR
+    - Flag with [DEVIATION: prerequisite not met for X — placing
+      anyway because Y]
+
+    Do NOT write notes like "(prerequisite met)" without
+    actually verifying. Such fabrications are critical errors.
 
 5. Workout codes are CASE-SENSITIVE. B/Te1 (lowercase 'e') is a
    different code from C/TE1 (uppercase). Match the KB exactly.
@@ -110,7 +136,27 @@ CORE RULES (non-negotiable):
 
 8. weeklyVolumeHours must respect the athlete's plannedWeeklyHours
    ceiling. Volume should ramp from min(recentWeeklyHours,
-   plannedWeeklyHours) toward plannedWeeklyHours.`;
+   plannedWeeklyHours) toward plannedWeeklyHours.
+
+9. LIMITER DISCIPLINE EMPHASIS. If the athlete's
+   disciplineDistribution shows any one discipline at < 20% of
+   recent training time, that discipline is the LIMITER.
+   Per knowledge-base/04-weekly-templates.md (rule 23, p. 214):
+   extra training capacity should go toward the limiter sport.
+
+   Apply this rule:
+   - Every week (except race week) MUST include at least one
+     breakthrough session in the limiter discipline.
+   - "Breakthrough" means a key session designed to drive
+     adaptation, not just a maintenance/skill swim.
+   - Acceptable breakthrough swim types: B/ME1, B/ME2, B/ME3,
+     B/AE2, B/M1, B/M2, B/AC1.
+   - Not acceptable as the sole swim: B/E1 (recovery), B/SS1
+     (speed skill drills) — these are maintenance, not
+     breakthrough.
+   - Surface this in week notes: "Week N includes a breakthrough
+     swim per the limiter-discipline rule (athlete swim history
+     X% of total)."`;
 
 const DAY_NAME_BY_INDEX: Record<number, string> = {
   0: 'Sunday',
@@ -181,22 +227,26 @@ ${profileJson}
 ## Compressed-timeline guidance
 
 This athlete has ${profile.weeksUntilRace} weeks. Friel's canonical full
-IM build is 24-28 weeks. Use Friel's Figure 7.3 ("subsequent A
-race, 12-16 weeks") template from knowledge-base/02-atp-structure.md
-as the structural anchor. This template specifically OMITS Build 1.
+IM build is 24-28 weeks. The KB documents two compressed-timeline
+templates:
 
-Phase allocation guidance for compressed timeline:
-- Skip Prep entirely (athlete is already trained)
-- Skip Base 1 entirely (athlete has aerobic base from marathons +
-  half IM)
-- Compress Base 2 + Base 3 to 4-6 weeks combined
-- Build 2: 4-5 weeks (the meat of IM-specific work)
-- Peak: 2 weeks
-- Race Week: 1 week
-- (No transition phase pre-race — that's post-race recovery)
+- Figure 7.3 (12-16 week scenario): Base 3 → Build 1 → Build 2 →
+  Peak → Race. KEEPS Build 1.
+- Figure 7.4 (7-11 week scenario): Base 3 → Build 2 → Peak → Race.
+  OMITS Build 1.
 
-Adjust per the actual KB tables. If KB content disagrees with
-this guidance, follow KB.
+Choose the template based on weeksUntilRace:
+- 12-16 weeks → Figure 7.3 (keeps Build 1)
+- 7-11 weeks → Figure 7.4 (omits Build 1)
+
+For phases skipped relative to the canonical 24-28 week build:
+Friel p. 187 explicitly states: "you will not repeat the prep
+period and probably not base 1 or base 2 either" for subsequent
+A-races. So skip Prep, Base 1, Base 2 in compressed timelines.
+
+KB content overrides any guidance in this section. If you find
+KB content disagreeing with the above, follow the KB and add a
+[DEVIATION:] note explaining.
 
 ## Athlete-specific considerations
 

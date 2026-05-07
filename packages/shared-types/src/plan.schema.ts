@@ -1,5 +1,5 @@
 import { z } from 'zod';
-import { disciplineSchema } from './athlete-profile.schema.js';
+import { dayOfWeekSchema, disciplineSchema } from './athlete-profile.schema.js';
 import type {
   AdaptationAction,
   AdaptationSuggestion,
@@ -93,6 +93,7 @@ const PHASE_ORDINAL: Record<Phase, number> = {
 const keySessionSchema = z.object({
   workoutCode: workoutCodeSchema,
   discipline: disciplineSchema,
+  dayOfWeek: dayOfWeekSchema,
   rationale: z.string().min(1),
   citation: citationSchema,
 }) satisfies z.ZodType<KeySession>;

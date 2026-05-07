@@ -27,6 +27,7 @@ export interface GenerateMacroPlanResult {
 export class PlanGenerationError extends Error {
   readonly rawResponse?: string;
   readonly validationIssues?: ZodIssue[];
+  readonly violations?: string[];
 
   constructor(
     message: string,
@@ -34,12 +35,66 @@ export class PlanGenerationError extends Error {
       cause?: unknown;
       rawResponse?: string;
       validationIssues?: ZodIssue[];
+      violations?: string[];
     } = {},
   ) {
     super(message, { cause: options.cause });
     this.name = 'PlanGenerationError';
     this.rawResponse = options.rawResponse;
     this.validationIssues = options.validationIssues;
+    this.violations = options.violations;
+  }
+}
+
+// Heuristic: workout codes that represent breakthrough endurance sessions
+// (long ride, long run, long aerobic brick). These MUST land on a
+// longSessionDay per the athlete's profile. Add codes here as the KB
+// taxonomy grows; refine in a follow-up if the heuristic produces false
+// positives/negatives in real plans.
+const LONG_SESSION_CODE_PREFIXES: readonly string[] = [
+  'B/E2',
+  'C/E2',
+  'D/E2',
+  'C/AE2',
+  'D/AE2',
+  'E/AE',
+];
+
+export function isLongSessionWorkout(workoutCode: string, rationale = ''): boolean {
+  if (LONG_SESSION_CODE_PREFIXES.some((p) => workoutCode.startsWith(p))) return true;
+  // Catch LLM rationale phrasing for explicitly "long" sessions even if the
+  // code prefix list misses them.
+  return /\blong\b/i.test(rationale);
+}
+
+export function validateDayConstraints(plan: MacroPlan, profile: AthleteProfile): void {
+  const violations: string[] = [];
+
+  for (const week of plan.weeks) {
+    for (const session of week.keySessions) {
+      if (
+        isLongSessionWorkout(session.workoutCode, session.rationale) &&
+        !profile.longSessionDays.includes(session.dayOfWeek)
+      ) {
+        violations.push(
+          `Week ${week.weekNumber}: ${session.workoutCode} is a long session on ` +
+            `${session.dayOfWeek}, but profile only allows long sessions on ` +
+            `[${profile.longSessionDays.join(', ')}]`,
+        );
+      }
+      if (profile.mandatoryRestDays.includes(session.dayOfWeek)) {
+        violations.push(
+          `Week ${week.weekNumber}: ${session.workoutCode} on ${session.dayOfWeek}, ` +
+            `but ${session.dayOfWeek} is a mandatoryRestDay`,
+        );
+      }
+    }
+  }
+
+  if (violations.length > 0) {
+    throw new PlanGenerationError(`Day-of-week constraint violations (${violations.length})`, {
+      violations,
+    });
   }
 }
 
@@ -128,6 +183,25 @@ export class PlanGenerationService {
         `MacroPlan schema validation failed (${result.error.issues.length} issue(s))`,
         { rawResponse, validationIssues: result.error.issues },
       );
+    }
+
+    try {
+      validateDayConstraints(result.data, profile);
+    } catch (err) {
+      if (err instanceof PlanGenerationError && err.violations) {
+        const summary = err.violations
+          .slice(0, 5)
+          .map((v) => `  - ${v}`)
+          .join('\n');
+        this.logger.error(
+          `Day-of-week constraint check failed (${err.violations.length} violation(s)):\n${summary}`,
+        );
+        throw new PlanGenerationError(err.message, {
+          rawResponse,
+          violations: err.violations,
+        });
+      }
+      throw err;
     }
 
     return {

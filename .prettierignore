@@ -10,6 +10,9 @@ coverage/
 **/drizzle/
 .eslintcache
 
+# Generated plan output (audits + raw runs are run-artifacts)
+apps/api/scripts/output/
+
 # Lockfiles
 pnpm-lock.yaml
 

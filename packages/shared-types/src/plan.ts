@@ -2,7 +2,7 @@
 // Validators in plan.schema.ts are the runtime gate; these interfaces are the
 // single source of truth for downstream consumers.
 
-import type { Discipline } from './athlete-profile.js';
+import type { DayOfWeek, Discipline } from './athlete-profile.js';
 import type { WorkoutCode } from './workout-codes.js';
 
 // ─── Phase ordering ──────────────────────────────────────────────────────────
@@ -23,6 +23,9 @@ export type Phase =
 export interface KeySession {
   workoutCode: WorkoutCode;
   discipline: Discipline;
+  /** Day this session is scheduled on (mon–sun). Required so day-of-week
+   *  constraints (longSessionDays, mandatoryRestDays) can be checked deterministically. */
+  dayOfWeek: DayOfWeek;
   /** 1–2 sentences, plain language. */
   rationale: string;
   /** KB reference, e.g. "knowledge-base/02-atp-structure.md#base-3". */

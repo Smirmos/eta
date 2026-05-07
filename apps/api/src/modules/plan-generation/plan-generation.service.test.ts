@@ -8,6 +8,8 @@ import {
   type AnthropicLike,
   PlanGenerationError,
   PlanGenerationService,
+  isLongSessionWorkout,
+  validateDayConstraints,
 } from './plan-generation.service.js';
 
 const ENV: Record<string, unknown> = {
@@ -97,10 +99,11 @@ function buildValidPlan(profileId: string, raceIso: string): MacroPlan {
       weeklyVolumeHours: phase === 'race_week' ? 4 : phase === 'peak' ? 8 : 11,
       keySessions: [
         {
-          workoutCode: 'B/AE2',
+          workoutCode: 'C/AE2',
           discipline: 'bike',
-          rationale: 'Aerobic endurance ride at sub-threshold to build aerobic capacity.',
-          citation: 'knowledge-base/03-workouts.md#b-ae2',
+          dayOfWeek: 'sun',
+          rationale: 'Long aerobic ride — primary endurance session of the week.',
+          citation: 'knowledge-base/03-workouts.md#c-ae2',
         },
       ],
     });
@@ -211,5 +214,90 @@ describe('PlanGenerationService', () => {
       name: 'PlanGenerationError',
       message: expect.stringContaining('upstream timeout'),
     });
+  });
+
+  it('rejects a plan that places a long session on a non-long-session day', async () => {
+    const plan = buildValidPlan('pid', FUTURE_RACE_ISO);
+    // Move the long ride to Saturday (profile only allows fri+sun).
+    plan.weeks[0]!.keySessions[0]!.dayOfWeek = 'sat';
+    const client = fakeAnthropic(JSON.stringify(plan));
+    const service = new PlanGenerationService(makeConfig(), makeKbLoader(), () => client);
+
+    try {
+      await service.generateMacroPlan(validProfile(), 'pid');
+      expect.fail('should have thrown');
+    } catch (err) {
+      expect(err).toBeInstanceOf(PlanGenerationError);
+      const e = err as PlanGenerationError;
+      expect(e.violations).toBeDefined();
+      expect(e.violations!.length).toBeGreaterThan(0);
+      expect(e.violations![0]).toMatch(/long session on sat/);
+      expect(e.rawResponse).toBeDefined();
+    }
+  });
+});
+
+describe('isLongSessionWorkout', () => {
+  it('flags AE2/E2 family codes as long sessions', () => {
+    expect(isLongSessionWorkout('C/AE2')).toBe(true);
+    expect(isLongSessionWorkout('D/AE2')).toBe(true);
+    expect(isLongSessionWorkout('E/AE1')).toBe(true);
+  });
+
+  it('does not flag short or skill sessions by code alone', () => {
+    expect(isLongSessionWorkout('B/SS1')).toBe(false);
+    expect(isLongSessionWorkout('C/T1')).toBe(false);
+    expect(isLongSessionWorkout('D/AC1')).toBe(false);
+  });
+
+  it('also flags sessions whose rationale text contains "long"', () => {
+    expect(isLongSessionWorkout('D/AE1', 'long easy run, build aerobic base')).toBe(true);
+  });
+});
+
+describe('validateDayConstraints', () => {
+  const baseProfile = (): AthleteProfile => validProfile();
+
+  function makePlan(
+    overrides: { dayOfWeek?: string; mandatoryRestDays?: string[] } = {},
+  ): MacroPlan {
+    const plan = buildValidPlan('pid', FUTURE_RACE_ISO);
+    if (overrides.dayOfWeek) {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      plan.weeks[0]!.keySessions[0]!.dayOfWeek = overrides.dayOfWeek as any;
+    }
+    return plan;
+  }
+
+  function expectViolations(fn: () => void, regex: RegExp): void {
+    try {
+      fn();
+      expect.fail('expected validateDayConstraints to throw');
+    } catch (err) {
+      expect(err).toBeInstanceOf(PlanGenerationError);
+      const e = err as PlanGenerationError;
+      expect(e.violations).toBeDefined();
+      expect(e.violations!.some((v) => regex.test(v))).toBe(true);
+    }
+  }
+
+  it('passes for a plan with long sessions only on longSessionDays', () => {
+    expect(() => validateDayConstraints(makePlan(), baseProfile())).not.toThrow();
+  });
+
+  it('throws when a long session lands on a day not in longSessionDays', () => {
+    const plan = makePlan({ dayOfWeek: 'tue' });
+    expectViolations(() => validateDayConstraints(plan, baseProfile()), /long session on tue/);
+  });
+
+  it('throws when any session lands on a mandatoryRestDay', () => {
+    const profile = baseProfile();
+    profile.mandatoryRestDays = ['mon'];
+    const plan = makePlan({ dayOfWeek: 'mon' });
+    // 'mon' is not a longSessionDay either, so the long-session path also triggers;
+    // use a non-long workout so we cleanly exercise the mandatoryRestDay branch.
+    plan.weeks[0]!.keySessions[0]!.workoutCode = 'B/SS1';
+    plan.weeks[0]!.keySessions[0]!.rationale = 'Skill drills';
+    expectViolations(() => validateDayConstraints(plan, profile), /mandatoryRestDay/);
   });
 });

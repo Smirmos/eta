@@ -117,10 +117,34 @@ describe('buildMacroPlanPrompt', () => {
     expect(user).toContain('interface MacroPlan {');
     expect(user).toContain('interface MacroPlanWeek {');
     expect(user).toContain('interface KeySession {');
+    expect(user).toContain('dayOfWeek: DayOfWeek');
     expect(user).toContain('## File: knowledge-base/01-zones.md');
     expect(user).toContain('## File: knowledge-base/02-atp-structure.md');
     expect(user).toContain('## File: knowledge-base/03-workouts.md');
     expect(user).toContain('## File: knowledge-base/04-weekly-templates.md');
     expect(user).toContain('## File: knowledge-base/05-recovery.md');
+  });
+
+  it('uses the corrected Figure 7.3 / 7.4 distinction (Build 1 kept in 12-16w)', () => {
+    const { user } = buildMacroPlanPrompt({
+      profile: sampleProfile(new Date('2026-08-22T00:00:00Z')),
+      athleteProfileId: 'pid-1',
+      kb: sampleKb(),
+      now: new Date('2026-05-07T00:00:00Z'),
+    });
+    expect(user).toContain('Figure 7.3 (12-16 week scenario)');
+    expect(user).toContain('KEEPS Build 1');
+    expect(user).toContain('Figure 7.4 (7-11 week scenario)');
+    expect(user).toContain('OMITS Build 1');
+    // The old, incorrect claim must no longer appear.
+    expect(user).not.toContain('Figure 7.3 ("subsequent A\nrace, 12-16 weeks")');
+    expect(user).not.toContain('This template specifically OMITS Build 1');
+  });
+
+  it('system prompt includes split deviation rules (4a, 4b) and limiter-discipline rule 9', () => {
+    expect(MACRO_PLAN_SYSTEM_PROMPT).toContain('4a. EVERY non-trivial deviation');
+    expect(MACRO_PLAN_SYSTEM_PROMPT).toContain('4b. NO FABRICATED JUSTIFICATIONS');
+    expect(MACRO_PLAN_SYSTEM_PROMPT).toContain('9. LIMITER DISCIPLINE EMPHASIS');
+    expect(MACRO_PLAN_SYSTEM_PROMPT).toContain('B/ME1, B/ME2, B/ME3');
   });
 });

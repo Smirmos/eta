@@ -29,6 +29,7 @@ function validMacroPlan(overrides: Partial<MacroPlan> = {}): MacroPlan {
         {
           workoutCode: 'C/AE2',
           discipline: 'bike',
+          dayOfWeek: 'sun',
           rationale: 'Long aerobic bike',
           citation: 'knowledge-base/03-workouts.md#C-AE2',
         },
@@ -44,6 +45,7 @@ function validMacroPlan(overrides: Partial<MacroPlan> = {}): MacroPlan {
         {
           workoutCode: 'D/AE2',
           discipline: 'run',
+          dayOfWeek: 'fri',
           rationale: 'Long run',
           citation: 'knowledge-base/03-workouts.md#D-AE2',
         },
@@ -200,6 +202,25 @@ describe('macroPlanSchema', () => {
   it('rejects empty citations', () => {
     const plan = validMacroPlan();
     plan.weeks[0]!.keySessions[0]!.citation = '';
+    const result = macroPlanSchema.safeParse(plan);
+    expect(result.success).toBe(false);
+  });
+
+  it('rejects keySession missing dayOfWeek', () => {
+    const plan = validMacroPlan();
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    delete (plan.weeks[0]!.keySessions[0] as any).dayOfWeek;
+    const result = macroPlanSchema.safeParse(plan);
+    expect(result.success).toBe(false);
+    if (!result.success) {
+      expect(result.error.issues.some((i) => i.path.includes('dayOfWeek'))).toBe(true);
+    }
+  });
+
+  it('rejects keySession with an invalid dayOfWeek value', () => {
+    const plan = validMacroPlan();
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    plan.weeks[0]!.keySessions[0]!.dayOfWeek = 'monday' as any;
     const result = macroPlanSchema.safeParse(plan);
     expect(result.success).toBe(false);
   });
