@@ -1,2 +1,3 @@
-scripts/output/
+scripts/output/*.json
+scripts/output/*.txt
 scripts/test-profile.json
