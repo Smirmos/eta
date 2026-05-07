@@ -2,6 +2,7 @@ import { Module } from '@nestjs/common';
 import { ConfigModule } from '@nestjs/config';
 import { validateEnv } from './config/env.schema.js';
 import { HealthController } from './common/health.controller.js';
+import { PlanGenerationModule } from './modules/plan-generation/plan-generation.module.js';
 
 @Module({
   imports: [
@@ -12,6 +13,7 @@ import { HealthController } from './common/health.controller.js';
       // The repo .env at the workspace root is preferred; a local override is allowed.
       envFilePath: ['../../.env', '.env'],
     }),
+    PlanGenerationModule,
   ],
   controllers: [HealthController],
 })

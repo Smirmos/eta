@@ -15,9 +15,11 @@
     "typecheck": "tsc -p tsconfig.json --noEmit",
     "db:generate": "drizzle-kit generate",
     "db:migrate": "drizzle-kit migrate",
-    "db:studio": "drizzle-kit studio"
+    "db:studio": "drizzle-kit studio",
+    "generate:test-plan": "node --import @swc-node/register/esm-register scripts/generate-test-plan.ts"
   },
   "dependencies": {
+    "@anthropic-ai/sdk": "^0.32.0",
     "@eta/shared-types": "workspace:*",
     "@nestjs/common": "^10.4.7",
     "@nestjs/config": "^3.3.0",
