@@ -4,9 +4,18 @@ import type { Env } from '../../config/env.schema.js';
 import { KnowledgeBaseLoader } from './knowledge-base.loader.js';
 import { PlanGenerationService } from './plan-generation.service.js';
 
+// Both providers use useFactory rather than relying on TS decorator metadata
+// for constructor injection — this lets the corresponding source files keep
+// type-only imports of ConfigService / KnowledgeBaseLoader without breaking
+// Nest's design:paramtypes-based DI.
 @Module({
   providers: [
-    KnowledgeBaseLoader,
+    {
+      provide: KnowledgeBaseLoader,
+      inject: [ConfigService],
+      useFactory: (config: ConfigService<Env, true>): KnowledgeBaseLoader =>
+        new KnowledgeBaseLoader(config),
+    },
     {
       provide: PlanGenerationService,
       inject: [ConfigService, KnowledgeBaseLoader],
