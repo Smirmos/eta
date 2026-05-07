@@ -145,6 +145,29 @@ describe('buildMacroPlanPrompt', () => {
     expect(MACRO_PLAN_SYSTEM_PROMPT).toContain('4a. EVERY non-trivial deviation');
     expect(MACRO_PLAN_SYSTEM_PROMPT).toContain('4b. NO FABRICATED JUSTIFICATIONS');
     expect(MACRO_PLAN_SYSTEM_PROMPT).toContain('9. LIMITER DISCIPLINE EMPHASIS');
-    expect(MACRO_PLAN_SYSTEM_PROMPT).toContain('B/ME1, B/ME2, B/ME3');
+    // Verified breakthrough codes (per Appendix B taxonomy) appear individually:
+    expect(MACRO_PLAN_SYSTEM_PROMPT).toContain('B/AE2 (Aerobic Endurance Intervals)');
+    expect(MACRO_PLAN_SYSTEM_PROMPT).toContain('B/MF1 (Muscular Force Reps)');
+    expect(MACRO_PLAN_SYSTEM_PROMPT).toContain('B/AC1 (VO2max Intervals)');
+    expect(MACRO_PLAN_SYSTEM_PROMPT).toContain('B/AE1 (Recovery');
+  });
+
+  it('system prompt does not reference workout codes that do not exist in the KB allowlist', () => {
+    // Regression guard: prior versions referenced B/E1, B/M1, B/M2 which are
+    // not in WORKOUT_CODES — the LLM hallucinated them as a result.
+    const bogus = [
+      ' B/E1 ',
+      ' B/E1,',
+      ' B/E1)',
+      ' B/M1 ',
+      ' B/M1,',
+      ' B/M1)',
+      ' B/M2 ',
+      ' B/M2,',
+      ' B/M2)',
+    ];
+    for (const fragment of bogus) {
+      expect(MACRO_PLAN_SYSTEM_PROMPT).not.toContain(fragment);
+    }
   });
 });

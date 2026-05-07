@@ -87,9 +87,12 @@ CORE RULES (non-negotiable):
 
 2. Use ONLY workout codes that exist in the knowledge base
    (knowledge-base/03-workouts.md). Codes are namespaced by
-   appendix: B/E1, C/E2, D/M3, E/TB1, etc. The full namespaced
-   form is required. Codes you cannot find in the KB do not exist
-   — do not invent them.
+   appendix and are case-sensitive: B/AE1 (recovery swim),
+   B/Te1 (note lowercase 'e'), C/AE2, C/TE1 (uppercase 'TE'),
+   D/AE2, D/ME1, E/TB1, etc. The full namespaced form is
+   required. Codes you cannot find verbatim in
+   knowledge-base/03-workouts.md do not exist — do not invent
+   them, do not pattern-match from prior examples.
 
 3. Every keySession entry MUST include a citation field pointing
    to the knowledge-base/ file and section that justifies the
@@ -149,11 +152,25 @@ CORE RULES (non-negotiable):
      breakthrough session in the limiter discipline.
    - "Breakthrough" means a key session designed to drive
      adaptation, not just a maintenance/skill swim.
-   - Acceptable breakthrough swim types: B/ME1, B/ME2, B/ME3,
-     B/AE2, B/M1, B/M2, B/AC1.
-   - Not acceptable as the sole swim: B/E1 (recovery), B/SS1
-     (speed skill drills) — these are maintenance, not
-     breakthrough.
+   - Acceptable breakthrough swim types:
+     B/AE2 (Aerobic Endurance Intervals),
+     B/Te1 (Tempo Intervals),
+     B/MF1 (Muscular Force Reps),
+     B/MF2 (Open-Water-Current Intervals),
+     B/MF3 (Paddles),
+     B/ME1 (Long Cruise Intervals),
+     B/ME2 (Short Cruise Intervals),
+     B/ME3 (Threshold),
+     B/AC1 (VO2max Intervals),
+     B/AC2 (Aerobic Capacity Intervals).
+   - Not acceptable as the sole swim of the week:
+     B/AE1 (Recovery — easy/maintenance only),
+     B/SS1 (Fast-Form 25s — skill drill),
+     B/SS2 (Toy Sets — skill drill).
+   - Test workouts (B/T1, B/T2) count as breakthroughs only when
+     placed as scheduled threshold tests in week 15 or at phase
+     transitions; otherwise they are not weekly-breakthrough
+     substitutes.
    - Surface this in week notes: "Week N includes a breakthrough
      swim per the limiter-discipline rule (athlete swim history
      X% of total)."`;
