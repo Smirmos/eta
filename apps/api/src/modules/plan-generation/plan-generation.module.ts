@@ -2,6 +2,7 @@ import { Module } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import type { Env } from '../../config/env.schema.js';
 import { KnowledgeBaseLoader } from './knowledge-base.loader.js';
+import { Pass2GenerationService } from './pass2/pass2.service.js';
 import { PlanGenerationService } from './plan-generation.service.js';
 
 // Both providers use useFactory rather than relying on TS decorator metadata
@@ -24,7 +25,15 @@ import { PlanGenerationService } from './plan-generation.service.js';
         kbLoader: KnowledgeBaseLoader,
       ): PlanGenerationService => new PlanGenerationService(config, kbLoader),
     },
+    {
+      provide: Pass2GenerationService,
+      inject: [ConfigService, KnowledgeBaseLoader],
+      useFactory: (
+        config: ConfigService<Env, true>,
+        kbLoader: KnowledgeBaseLoader,
+      ): Pass2GenerationService => new Pass2GenerationService(config, kbLoader),
+    },
   ],
-  exports: [PlanGenerationService],
+  exports: [PlanGenerationService, Pass2GenerationService],
 })
 export class PlanGenerationModule {}
