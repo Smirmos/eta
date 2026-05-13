@@ -113,6 +113,17 @@ export function plannedTssForWorkout(workout: PlannedWorkout): number {
   return hours * if_ ** exponent * 100;
 }
 
+// Per-workout planned TSS rounded to the same precision used in the
+// emitted JSON (`PlannedWorkout.expectedTss` and the weekly + daily
+// aggregates). Aggregates must sum the *rounded* per-workout value so
+// that sum(workouts[].expectedTss) === sum(dailyTssDistribution) === weeklyTotalTss
+// — otherwise the v3 audit's 0.1 rounding drift recurs (the LLM-visible
+// display values disagree by one tenth of a TSS).
+const TSS_DECIMALS = 1;
+export function plannedTssRounded(workout: PlannedWorkout): number {
+  return round(plannedTssForWorkout(workout), TSS_DECIMALS);
+}
+
 // ─── Constraint validation ──────────────────────────────────────────────────
 
 export class WeeklyDetailConstraintError extends Error {
@@ -283,8 +294,10 @@ export function computeWeeklySummary(input: {
   let totalSeconds = 0;
   let totalTss = 0;
 
+  // Use per-workout rounded TSS so the three user-visible views agree exactly:
+  //   sum(workouts[].expectedTss) === sum(dailyTssDistribution) === weeklyTotalTss
   for (const wo of weeklyDetail.workouts) {
-    const tss = plannedTssForWorkout(wo);
+    const tss = plannedTssRounded(wo);
     const day = dayOfWeekFromIso(wo.date);
     dailyTss[day] += tss;
     disciplineHours[wo.discipline] += wo.totalDurationSeconds / 3600;
@@ -328,10 +341,20 @@ export function computeWeeklySummary(input: {
     }
   }
 
+  // Re-round the daily/weekly totals defensively in case Σ of TSS_DECIMALS-rounded
+  // values picks up float-summation noise (e.g., 0.1 + 0.2 = 0.30000…04).
   return {
     totalWeeklyHours: round(totalHours, 2),
-    totalWeeklyTss: round(totalTss, 1),
-    dailyTssDistribution: dailyTss,
+    totalWeeklyTss: round(totalTss, TSS_DECIMALS),
+    dailyTssDistribution: {
+      mon: round(dailyTss.mon, TSS_DECIMALS),
+      tue: round(dailyTss.tue, TSS_DECIMALS),
+      wed: round(dailyTss.wed, TSS_DECIMALS),
+      thu: round(dailyTss.thu, TSS_DECIMALS),
+      fri: round(dailyTss.fri, TSS_DECIMALS),
+      sat: round(dailyTss.sat, TSS_DECIMALS),
+      sun: round(dailyTss.sun, TSS_DECIMALS),
+    },
     disciplineHours: {
       swim: round(disciplineHours.swim, 2),
       bike: round(disciplineHours.bike, 2),
@@ -391,7 +414,7 @@ export function annotateWithComputedFields(input: {
     ...weeklyDetail,
     workouts: weeklyDetail.workouts.map((wo) => ({
       ...wo,
-      expectedTss: round(plannedTssForWorkout(wo), 1),
+      expectedTss: plannedTssRounded(wo),
     })),
     weeklyTotalTss: summary.totalWeeklyTss,
     weeklyTotalHours: summary.totalWeeklyHours,

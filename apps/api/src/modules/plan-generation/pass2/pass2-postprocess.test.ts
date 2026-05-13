@@ -12,6 +12,7 @@ import {
   computeWeeklySummary,
   extractAppliedSources,
   plannedTssForWorkout,
+  plannedTssRounded,
   validateWeeklyDetailConstraints,
 } from './pass2-postprocess.js';
 
@@ -563,6 +564,71 @@ describe('annotateWithComputedFields', () => {
     annotateWithComputedFields({ weeklyDetail: weekly, summary });
     expect(weekly.workouts[0]!.expectedTss).toBeUndefined();
     expect(weekly.weeklyTotalHours).toBeUndefined();
+  });
+});
+
+// ─── TSS rounding invariant (regression guard) ──────────────────────────────
+//
+// The v3 audit found a 0.1 drift between sum-of-per-workout-expectedTss
+// (494.1) and weeklyTotalTss (494.2). Fix: aggregate from rounded per-workout
+// values so all three user-visible numbers agree exactly.
+
+describe('TSS rounding invariant', () => {
+  it('plannedTssRounded matches plannedTssForWorkout rounded to 1 decimal', () => {
+    const wo = makeWorkout();
+    expect(plannedTssRounded(wo)).toBeCloseTo(plannedTssForWorkout(wo), 1);
+  });
+
+  it('sum of per-workout expectedTss equals weeklyTotalTss exactly', () => {
+    // Six workouts roughly mirroring the v3 fixture so the test exercises a
+    // realistic spread of disciplines and durations.
+    const weekly = makeWeekly({
+      workouts: [
+        makeWorkout({ workoutCode: 'B/T2', discipline: 'swim', date: '2026-05-12', totalDurationSeconds: 3600, segments: [makeSegment({ durationSeconds: 1200, zone: 'z1' }), makeSegment({ durationSeconds: 1800, zone: 'z4' }), makeSegment({ durationSeconds: 600, zone: 'z1' })] }),
+        makeWorkout({ workoutCode: 'C/T1', discipline: 'bike', date: '2026-05-13', totalDurationSeconds: 4500, segments: [makeSegment({ durationSeconds: 1500, zone: 'z1' }), makeSegment({ durationSeconds: 1800, zone: 'z4' }), makeSegment({ durationSeconds: 1200, zone: 'z1' })] }),
+        makeWorkout({ workoutCode: 'B/SS1', discipline: 'swim', date: '2026-05-14', totalDurationSeconds: 2400, segments: [makeSegment({ durationSeconds: 600, zone: 'z1' }), makeSegment({ durationSeconds: 1500, zone: 'easy' }), makeSegment({ durationSeconds: 300, zone: 'z1' })] }),
+        makeWorkout({ workoutCode: 'D/AE2', discipline: 'run', date: '2026-05-15', totalDurationSeconds: 6300, segments: [makeSegment({ durationSeconds: 600, zone: 'z1' }), makeSegment({ durationSeconds: 5100, zone: 'z2' }), makeSegment({ durationSeconds: 600, zone: 'z1' })] }),
+        makeWorkout({ workoutCode: 'B/AE2', discipline: 'swim', date: '2026-05-16', totalDurationSeconds: 4200, segments: [makeSegment({ durationSeconds: 900, zone: 'z1' }), makeSegment({ durationSeconds: 2700, zone: 'z2' }), makeSegment({ durationSeconds: 600, zone: 'z1' })] }),
+        makeWorkout({ workoutCode: 'C/AE2', discipline: 'bike', date: '2026-05-17', totalDurationSeconds: 12600, segments: [makeSegment({ durationSeconds: 900, zone: 'z1' }), makeSegment({ durationSeconds: 10800, zone: 'z2' }), makeSegment({ durationSeconds: 900, zone: 'z1' })] }),
+      ],
+    });
+    const summary = computeWeeklySummary({ weeklyDetail: weekly, macroWeek: makeMacroWeek() });
+    const annotated = annotateWithComputedFields({ weeklyDetail: weekly, summary });
+
+    const sumOfExpectedTss = annotated.workouts.reduce((acc, w) => acc + (w.expectedTss ?? 0), 0);
+    // Float-sum can introduce a microscopic delta even when each term is 1dp;
+    // assert equality at the rounded-to-1dp precision.
+    expect(Math.round(sumOfExpectedTss * 10) / 10).toBe(annotated.weeklyTotalTss);
+  });
+
+  it('sum of dailyTssDistribution equals weeklyTotalTss exactly', () => {
+    const weekly = makeWeekly({
+      workouts: [
+        makeWorkout({ date: '2026-05-12' }),
+        makeWorkout({ date: '2026-05-15', discipline: 'run' }),
+        makeWorkout({ date: '2026-05-17', discipline: 'bike' }),
+      ],
+    });
+    const summary = computeWeeklySummary({ weeklyDetail: weekly, macroWeek: makeMacroWeek() });
+    const dailySum =
+      summary.dailyTssDistribution.mon +
+      summary.dailyTssDistribution.tue +
+      summary.dailyTssDistribution.wed +
+      summary.dailyTssDistribution.thu +
+      summary.dailyTssDistribution.fri +
+      summary.dailyTssDistribution.sat +
+      summary.dailyTssDistribution.sun;
+    expect(Math.round(dailySum * 10) / 10).toBe(summary.totalWeeklyTss);
+  });
+
+  it('all three views agree on the same per-workout TSS value', () => {
+    const weekly = makeWeekly();
+    const summary = computeWeeklySummary({ weeklyDetail: weekly, macroWeek: makeMacroWeek() });
+    const annotated = annotateWithComputedFields({ weeklyDetail: weekly, summary });
+    const wo = annotated.workouts[0]!;
+    const day = 'sun'; // makeWorkout default date is 2026-05-17 = Sun
+    expect(wo.expectedTss).toBe(summary.dailyTssDistribution[day]);
+    expect(wo.expectedTss).toBe(summary.totalWeeklyTss);
   });
 });
 
