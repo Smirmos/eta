@@ -1,14 +1,29 @@
 /* eslint-disable no-console */
-// Renders the most recent macro plan JSON in scripts/output/ to a single
-// self-contained HTML file. Throwaway tooling — not a product feature.
+// Renders the most recent plan-generation artifact (macro plan OR Pass 2
+// weekly detail) in scripts/output/ to a single self-contained HTML file.
+// Throwaway tooling — not a product feature.
 //
-// Layout: calendar grid per week (7 days). Each session is a compact card.
-// Click a card → native <dialog> modal opens with the full workout details.
+// Macro plan layout: calendar grid per week (7 days). Each session is a
+// compact card. Click a card → native <dialog> modal opens with full details.
+//
+// Weekly detail layout (Pass 2): single-week vertical view, one card per
+// workout in chronological order, showing all 3 segments (Warmup/Main/Cooldown)
+// with zone labels resolved to concrete HR/pace/watt ranges off the athlete's
+// thresholds.
+//
 // Visuals via emoji (no SVG illustrations).
 import { readFileSync, readdirSync, statSync, writeFileSync } from 'node:fs';
 import { dirname, join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import type { AthleteProfile, MacroPlan, MacroPlanWeek } from '@eta/shared-types';
+import type {
+  AthleteProfile,
+  IntensityZone,
+  MacroPlan,
+  MacroPlanWeek,
+  PlannedWorkout,
+  WeeklyDetail,
+  WorkoutSegment,
+} from '@eta/shared-types';
 
 const HERE = dirname(fileURLToPath(import.meta.url));
 const OUTPUT_DIR = resolve(HERE, 'output');
@@ -16,7 +31,7 @@ const PROFILE_PATH = resolve(HERE, 'test-profile.json');
 const REPO_ROOT = resolve(HERE, '..', '..', '..');
 const KB_WORKOUTS = resolve(REPO_ROOT, 'knowledge-base', '03-workouts.md');
 
-// ─── Locate latest plan ──────────────────────────────────────────────────────
+// ─── Locate latest artifact (macro plan or weekly detail) ───────────────────
 
 interface FileEntry {
   name: string;
@@ -24,9 +39,18 @@ interface FileEntry {
   mtime: number;
 }
 
-function locateLatestPlan(): { path: string; timestamp: string } {
+type ArtifactKind = 'macro' | 'weekly';
+
+function locateLatestArtifact(): {
+  path: string;
+  timestamp: string;
+  kind: ArtifactKind;
+} {
   const entries = readdirSync(OUTPUT_DIR)
-    .filter((f) => f.startsWith('test-plan-') && f.endsWith('.json'))
+    .filter(
+      (f) =>
+        f.endsWith('.json') && (f.startsWith('test-plan-') || f.startsWith('test-week-')),
+    )
     .map<FileEntry>((f) => {
       const path = join(OUTPUT_DIR, f);
       return { name: f, path, mtime: statSync(path).mtimeMs };
@@ -34,11 +58,13 @@ function locateLatestPlan(): { path: string; timestamp: string } {
     .sort((a, b) => b.mtime - a.mtime);
 
   if (entries.length === 0) {
-    throw new Error(`No test-plan-*.json files found in ${OUTPUT_DIR}`);
+    throw new Error(`No test-plan-*.json or test-week-*.json found in ${OUTPUT_DIR}`);
   }
   const latest = entries[0] as FileEntry;
-  const timestamp = latest.name.replace(/^test-plan-/, '').replace(/\.json$/, '');
-  return { path: latest.path, timestamp };
+  const kind: ArtifactKind = latest.name.startsWith('test-week-') ? 'weekly' : 'macro';
+  const prefix = kind === 'weekly' ? 'test-week-' : 'test-plan-';
+  const timestamp = latest.name.replace(new RegExp(`^${prefix}`), '').replace(/\.json$/, '');
+  return { path: latest.path, timestamp, kind };
 }
 
 // ─── Workout-content parser ──────────────────────────────────────────────────
@@ -205,6 +231,142 @@ function disciplineClass(d: string, brick: boolean): string {
   if (d === 'swim') return 's-swim';
   if (d === 'bike') return 's-bike';
   return 's-run';
+}
+
+// ─── Zone resolution (renderer-only) ─────────────────────────────────────────
+//
+// Per ETA-20 Decision #2 (Flag E): WeeklyDetail JSON stores zone *labels*
+// (z1..z5c, mixed, easy). Concrete HR/pace/watt ranges are resolved at render
+// time off the athlete's thresholds. This block lives in the renderer because
+// (a) the canonical JSON stays athlete-agnostic and recomputable if FTP
+// changes, and (b) the resolved ranges are presentation, not state.
+//
+// Bands derived from Friel Table 4.1 (knowledge-base/01-zones.md:116). For
+// pace-based disciplines (swim, run) the FTPa column is %-of-threshold-pace
+// where higher % means SLOWER, so the lower-bound % maps to the FASTER end
+// of the range and vice versa. Power and HR are intuitive (higher % = higher
+// load).
+
+type ZoneOrMix = IntensityZone | 'mixed' | 'easy';
+
+interface ZoneBand {
+  lowPct: number;
+  highPct: number;
+}
+
+// Bike FTPo (% of FTP), Table 4.1.
+const BIKE_POWER_BANDS: Record<IntensityZone, ZoneBand> = {
+  z1: { lowPct: 0, highPct: 55 },
+  z2: { lowPct: 56, highPct: 75 },
+  z3: { lowPct: 76, highPct: 90 },
+  z4: { lowPct: 91, highPct: 105 },
+  z5a: { lowPct: 106, highPct: 120 },
+  z5b: { lowPct: 106, highPct: 120 },
+  z5c: { lowPct: 121, highPct: 140 },
+};
+// Bike/Run FTHR (% of FTHR), Table 4.1. The 70-77% gap is intentional per
+// the source (knowledge-base/01-zones.md:135 FLAG).
+const HR_BANDS: Record<IntensityZone, ZoneBand> = {
+  z1: { lowPct: 60, highPct: 69 },
+  z2: { lowPct: 78, highPct: 86 },
+  z3: { lowPct: 87, highPct: 93 },
+  z4: { lowPct: 94, highPct: 99 },
+  z5a: { lowPct: 100, highPct: 102 },
+  z5b: { lowPct: 103, highPct: 105 },
+  z5c: { lowPct: 105, highPct: 110 },
+};
+// Run FTPa (% of FTPa, where higher % = slower pace), Table 4.1.
+const RUN_PACE_BANDS: Record<IntensityZone, ZoneBand> = {
+  z1: { lowPct: 130, highPct: 145 },
+  z2: { lowPct: 114, highPct: 129 },
+  z3: { lowPct: 106, highPct: 113 },
+  z4: { lowPct: 101, highPct: 105 },
+  z5a: { lowPct: 95, highPct: 100 },
+  z5b: { lowPct: 90, highPct: 95 },
+  z5c: { lowPct: 80, highPct: 89 },
+};
+// Swim uses the same pace-band structure as run, anchored on T-pace.
+const SWIM_PACE_BANDS = RUN_PACE_BANDS;
+
+function parseClock(value: string): number | undefined {
+  const m = value.match(/^(\d+):(\d{2})$/);
+  if (!m) return undefined;
+  return parseInt(m[1] as string, 10) * 60 + parseInt(m[2] as string, 10);
+}
+
+function formatClock(totalSeconds: number): string {
+  if (!Number.isFinite(totalSeconds) || totalSeconds < 0) return '—';
+  const mins = Math.floor(totalSeconds / 60);
+  const secs = Math.round(totalSeconds - mins * 60);
+  const secsStr = secs < 10 ? `0${secs}` : `${secs}`;
+  return `${mins}:${secsStr}`;
+}
+
+function formatWattRange(threshold: number, band: ZoneBand): string {
+  const low = Math.round((band.lowPct / 100) * threshold);
+  const high = Math.round((band.highPct / 100) * threshold);
+  return `${low}–${high} W`;
+}
+
+function formatHrRange(threshold: number, band: ZoneBand): string {
+  const low = Math.round((band.lowPct / 100) * threshold);
+  const high = Math.round((band.highPct / 100) * threshold);
+  return `${low}–${high} bpm`;
+}
+
+// Pace bands: lowPct = faster-end %, highPct = slower-end %. Faster pace
+// has FEWER seconds, so faster-end seconds = threshold × lowPct/100 and
+// slower-end seconds = threshold × highPct/100.
+function formatPaceRange(thresholdSeconds: number, band: ZoneBand, unit: string): string {
+  const fast = thresholdSeconds * (band.lowPct / 100);
+  const slow = thresholdSeconds * (band.highPct / 100);
+  return `${formatClock(fast)}–${formatClock(slow)}${unit}`;
+}
+
+// Resolve a (zone, discipline) pair into the concrete athlete-specific
+// display string. Returns null if the zone is 'mixed' or 'easy' (those are
+// rendered as the literal label) or if the relevant threshold is missing.
+function resolveZone(
+  zone: ZoneOrMix,
+  discipline: 'swim' | 'bike' | 'run',
+  profile: AthleteProfile,
+): string | null {
+  if (zone === 'mixed' || zone === 'easy') return null;
+  const z = zone as IntensityZone;
+
+  if (discipline === 'bike') {
+    const ftp = profile.thresholds.bikeFtpWatts?.value;
+    const fthr = profile.thresholds.bikeThresholdHr.value;
+    const parts: string[] = [];
+    if (typeof ftp === 'number') parts.push(formatWattRange(ftp, BIKE_POWER_BANDS[z]));
+    parts.push(formatHrRange(fthr, HR_BANDS[z]));
+    return parts.join(' · ');
+  }
+
+  if (discipline === 'run') {
+    const ftpa = profile.thresholds.runThresholdPacePerKm.value;
+    const fthr = profile.thresholds.runThresholdHr.value;
+    const ftpaSeconds = parseClock(ftpa);
+    const parts: string[] = [];
+    if (ftpaSeconds !== undefined)
+      parts.push(formatPaceRange(ftpaSeconds, RUN_PACE_BANDS[z], '/km'));
+    parts.push(formatHrRange(fthr, HR_BANDS[z]));
+    return parts.join(' · ');
+  }
+
+  // swim
+  const tPace = profile.thresholds.swimTPacePer100m?.value;
+  if (typeof tPace !== 'string') return null;
+  const tSeconds = parseClock(tPace);
+  if (tSeconds === undefined) return null;
+  return formatPaceRange(tSeconds, SWIM_PACE_BANDS[z], '/100m');
+}
+
+// Pretty zone-label for the segment row when the label IS the display.
+function zoneLabelDisplay(zone: ZoneOrMix): string {
+  if (zone === 'mixed') return 'Mixed';
+  if (zone === 'easy') return 'Easy';
+  return zone.toUpperCase();
 }
 
 // ─── HTML helpers ────────────────────────────────────────────────────────────
@@ -513,6 +675,201 @@ function renderModal(
 </dialog>`;
 }
 
+// ─── WeeklyDetail (Pass 2) rendering ─────────────────────────────────────────
+
+interface WeeklyArtifact {
+  weeklyDetail: WeeklyDetail;
+  computed?: {
+    totalWeeklyHours?: number;
+    totalWeeklyTss?: number;
+    dailyTssDistribution?: Record<string, number>;
+    disciplineHours?: Record<string, number>;
+    deviationsFromPhaseExpected?: string[];
+  };
+  appliedSources?: string[];
+}
+
+// The Pass 2 fixture is wrapped: { input, weeklyDetail, computed, appliedSources }.
+// A bare WeeklyDetail is also accepted (no computed/appliedSources).
+function parseWeeklyArtifact(raw: unknown): WeeklyArtifact {
+  if (raw && typeof raw === 'object' && 'weeklyDetail' in raw) {
+    const wrap = raw as Partial<WeeklyArtifact>;
+    if (!wrap.weeklyDetail) throw new Error('weekly artifact: missing weeklyDetail');
+    return {
+      weeklyDetail: wrap.weeklyDetail,
+      ...(wrap.computed ? { computed: wrap.computed } : {}),
+      ...(wrap.appliedSources ? { appliedSources: wrap.appliedSources } : {}),
+    };
+  }
+  return { weeklyDetail: raw as WeeklyDetail };
+}
+
+function durationLabel(seconds: number): string {
+  const minutes = Math.round(seconds / 60);
+  if (minutes < 60) return `${minutes} min`;
+  const hours = Math.floor(minutes / 60);
+  const rem = minutes - hours * 60;
+  if (rem === 0) return `${hours} h`;
+  return `${hours} h ${rem} min`;
+}
+
+function renderWeeklySegment(
+  segment: WorkoutSegment,
+  discipline: 'swim' | 'bike' | 'run',
+  profile: AthleteProfile,
+): string {
+  const resolved = resolveZone(segment.zone as ZoneOrMix, discipline, profile);
+  return `<tr class="seg-row">
+    <td class="seg-label">${escapeHtml(segment.label)}</td>
+    <td class="seg-dur">${escapeHtml(durationLabel(segment.durationSeconds))}</td>
+    <td class="seg-zone">
+      <span class="seg-zone-pill">${escapeHtml(zoneLabelDisplay(segment.zone as ZoneOrMix))}</span>
+      ${resolved ? `<span class="seg-zone-range">${escapeHtml(resolved)}</span>` : ''}
+    </td>
+    <td class="seg-desc">${escapeHtml(segment.description)}</td>
+  </tr>`;
+}
+
+function renderWeeklyWorkout(
+  workout: PlannedWorkout,
+  profile: AthleteProfile,
+  workouts: Map<string, WorkoutInfo>,
+): string {
+  const brick = isBrick(workout.workoutCode);
+  const cls = disciplineClass(workout.discipline, brick);
+  const emoji = disciplineEmoji(workout.discipline, brick);
+  const info = workouts.get(workout.workoutCode);
+  const name = info?.name ?? '(workout name not found in KB)';
+
+  return `<article class="wo-card ${cls}">
+    <header class="wo-head">
+      <div class="wo-id">
+        <span class="wo-emoji" aria-hidden="true">${emoji}</span>
+        <div>
+          <p class="wo-day">${escapeHtml(formatLong(workout.date))}</p>
+          <h3 class="wo-title">${escapeHtml(workout.workoutCode)} <span class="wo-sep">·</span> ${escapeHtml(name)}</h3>
+        </div>
+      </div>
+      <div class="wo-stats">
+        <span class="wo-stat"><span class="wo-stat-k">Duration</span><span class="wo-stat-v">${escapeHtml(durationLabel(workout.totalDurationSeconds))}</span></span>
+        ${
+          typeof workout.expectedTss === 'number'
+            ? `<span class="wo-stat"><span class="wo-stat-k">Planned TSS</span><span class="wo-stat-v">${workout.expectedTss.toFixed(1)}</span></span>`
+            : ''
+        }
+      </div>
+    </header>
+
+    <table class="seg-table">
+      <thead><tr><th>Segment</th><th>Duration</th><th>Zone</th><th>Description</th></tr></thead>
+      <tbody>${workout.segments.map((s) => renderWeeklySegment(s, workout.discipline, profile)).join('')}</tbody>
+    </table>
+
+    <section class="wo-rationale">
+      <h4>🤔 Why this workout</h4>
+      <p>${escapeHtml(workout.rationale)}</p>
+    </section>
+
+    <footer class="wo-foot">
+      <span class="wo-cite">📎 <code>${escapeHtml(workout.citation)}</code></span>
+    </footer>
+  </article>`;
+}
+
+function renderWeeklyHero(artifact: WeeklyArtifact, profile: AthleteProfile): string {
+  const wd = artifact.weeklyDetail;
+  const c = artifact.computed;
+  const phase = wd.phase;
+  const startIso = wd.weekStartDate;
+  const endIso = addDaysIso(startIso, 6);
+
+  const hoursValue =
+    c?.totalWeeklyHours ??
+    wd.weeklyTotalHours ??
+    wd.workouts.reduce((acc, w) => acc + w.totalDurationSeconds / 3600, 0);
+  const tssValue =
+    c?.totalWeeklyTss ??
+    wd.weeklyTotalTss ??
+    wd.workouts.reduce((acc, w) => acc + (w.expectedTss ?? 0), 0);
+
+  const swimH = c?.disciplineHours?.swim ?? 0;
+  const bikeH = c?.disciplineHours?.bike ?? 0;
+  const runH = c?.disciplineHours?.run ?? 0;
+
+  return `<header class="page-header">
+  <div class="head-row">
+    <div class="title-block">
+      <p class="kicker">🏊 🚴 🏃 &nbsp;Weekly Detail · Pass 2</p>
+      <h1>Week ${wd.weekNumber}</h1>
+      <p class="subtitle">${escapeHtml(phaseLabel(phase))} ${phaseEmoji(phase)} · ${escapeHtml(formatLong(startIso))} → ${escapeHtml(formatLong(endIso))}</p>
+    </div>
+    <button class="print-btn" onclick="window.print()" aria-label="Print this week">🖨️ Print</button>
+  </div>
+  <div class="quick-stats">
+    <span class="stat">⏱️ ${hoursValue.toFixed(2)} h</span>
+    <span class="stat">⚡ ${tssValue.toFixed(1)} TSS</span>
+    <span class="stat">🏊 ${swimH.toFixed(2)} h · 🚴 ${bikeH.toFixed(2)} h · 🏃 ${runH.toFixed(2)} h</span>
+    <span class="stat">📍 Long days: ${profile.longSessionDays.map((d) => DAY_SHORT[d as Day] ?? d).join(' · ')}</span>
+  </div>
+</header>`;
+}
+
+function renderWeeklyDeviations(artifact: WeeklyArtifact): string {
+  const list = artifact.computed?.deviationsFromPhaseExpected ?? [];
+  if (list.length === 0) return '';
+  return `<section class="dev-panel">
+    <h2>⚠️ Deviations</h2>
+    <ul>${list.map((d) => `<li>${escapeHtml(d)}</li>`).join('')}</ul>
+  </section>`;
+}
+
+function renderWeeklyHtml(input: {
+  artifact: WeeklyArtifact;
+  profile: AthleteProfile;
+  workouts: Map<string, WorkoutInfo>;
+}): string {
+  const { artifact, profile, workouts } = input;
+  const wd = artifact.weeklyDetail;
+
+  // Workouts in chronological order — they should already be by-date but
+  // tolerate out-of-order LLM emission.
+  const sorted = [...wd.workouts].sort((a, b) => a.date.localeCompare(b.date));
+
+  return `<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>${escapeHtml(`Week ${wd.weekNumber} — ${wd.weekStartDate}`)}</title>
+<style>${CSS}${WEEKLY_CSS}</style>
+</head>
+<body class="weekly">
+${renderWeeklyHero(artifact, profile)}
+
+<main class="page-main weekly-main">
+  ${renderWeeklyDeviations(artifact)}
+  <div class="wo-list">
+    ${sorted.map((w) => renderWeeklyWorkout(w, profile, workouts)).join('\n')}
+  </div>
+  ${
+    wd.globalNotes
+      ? `<section class="global-notes"><h2>📝 Global notes</h2><p>${escapeHtml(wd.globalNotes)}</p></section>`
+      : ''
+  }
+</main>
+
+<footer class="page-footer">
+  ${
+    artifact.appliedSources && artifact.appliedSources.length > 0
+      ? `Sources: ${artifact.appliedSources.map((s) => `<code>${escapeHtml(s)}</code>`).join(' · ')}`
+      : `Week ${wd.weekNumber} · ${escapeHtml(wd.phase)}`
+  }
+</footer>
+</body>
+</html>
+`;
+}
+
 // ─── Inline CSS ──────────────────────────────────────────────────────────────
 
 const CSS = `
@@ -778,6 +1135,105 @@ body {
 }
 `;
 
+// ─── Inline CSS (WeeklyDetail-only additions) ────────────────────────────────
+
+const WEEKLY_CSS = `
+.weekly .page-main.weekly-main {
+  display: flex; flex-direction: column; gap: 24px;
+  max-width: 1100px; margin: 0 auto; padding: 24px 32px 48px;
+}
+.weekly .wo-list { display: flex; flex-direction: column; gap: 20px; }
+
+.wo-card {
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-left: 4px solid var(--accent);
+  border-radius: var(--r-radius);
+  padding: 18px 22px;
+  box-shadow: 0 1px 2px rgba(0,0,0,0.04);
+}
+.wo-card.s-swim { border-left-color: var(--c-swim); }
+.wo-card.s-bike { border-left-color: var(--c-bike); }
+.wo-card.s-run { border-left-color: var(--c-run); }
+.wo-card.s-brick { border-left-color: var(--c-brick); }
+
+.wo-head { display: flex; justify-content: space-between; align-items: flex-start; gap: 18px; margin-bottom: 14px; }
+.wo-id { display: flex; gap: 14px; align-items: flex-start; }
+.wo-emoji { font-size: 28px; line-height: 1; }
+.wo-day { margin: 0 0 2px; font-size: 12px; color: var(--ink-3); font-weight: 600; letter-spacing: 0.04em; text-transform: uppercase; }
+.wo-title { margin: 0; font-size: 18px; font-weight: 600; }
+.wo-sep { color: var(--ink-3); }
+.wo-stats { display: flex; flex-direction: column; gap: 6px; text-align: right; }
+.wo-stat { display: flex; flex-direction: column; }
+.wo-stat-k { font-size: 11px; color: var(--ink-3); text-transform: uppercase; letter-spacing: 0.04em; }
+.wo-stat-v { font-size: 15px; font-weight: 600; }
+
+.seg-table {
+  width: 100%;
+  border-collapse: collapse;
+  margin: 8px 0 14px;
+  font-size: 13px;
+}
+.seg-table thead th {
+  text-align: left; padding: 6px 8px;
+  border-bottom: 1px solid var(--line);
+  font-size: 11px; color: var(--ink-3); text-transform: uppercase; letter-spacing: 0.04em; font-weight: 600;
+}
+.seg-table td { padding: 8px; border-bottom: 1px solid var(--line); vertical-align: top; }
+.seg-table tr:last-child td { border-bottom: none; }
+.seg-label { font-weight: 600; width: 100px; }
+.seg-dur { width: 90px; color: var(--ink-2); }
+.seg-zone { width: 220px; }
+.seg-zone-pill {
+  display: inline-block; padding: 2px 8px; border-radius: 10px;
+  background: var(--surface-2); border: 1px solid var(--line-2);
+  font-weight: 600; font-size: 12px;
+  margin-right: 6px;
+}
+.seg-zone-range { font-family: ui-monospace, SFMono-Regular, monospace; font-size: 12px; color: var(--ink-2); }
+.seg-desc { color: var(--ink); line-height: 1.5; }
+
+.wo-rationale {
+  background: var(--surface-2);
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  padding: 12px 14px;
+  margin: 0 0 12px;
+}
+.wo-rationale h4 { margin: 0 0 6px; font-size: 12px; color: var(--ink-2); text-transform: uppercase; letter-spacing: 0.04em; font-weight: 600; }
+.wo-rationale p { margin: 0; line-height: 1.55; }
+
+.wo-foot { font-size: 12px; color: var(--ink-3); }
+.wo-cite code { background: var(--surface-2); padding: 2px 6px; border-radius: 4px; }
+
+.dev-panel {
+  background: #FFF7E6;
+  border: 1px solid #E6CB7C;
+  border-left: 4px solid #B26C3A;
+  border-radius: var(--r-radius);
+  padding: 14px 18px;
+}
+.dev-panel h2 { margin: 0 0 6px; font-size: 15px; }
+.dev-panel ul { margin: 0; padding-left: 22px; }
+.dev-panel li { margin: 2px 0; font-size: 13px; line-height: 1.5; }
+
+.global-notes {
+  background: var(--surface-2);
+  border: 1px solid var(--line);
+  border-radius: var(--r-radius);
+  padding: 14px 18px;
+}
+.global-notes h2 { margin: 0 0 6px; font-size: 15px; }
+.global-notes p { margin: 0; line-height: 1.55; }
+
+@media (max-width: 760px) {
+  .seg-zone { width: auto; }
+  .seg-dur, .seg-label { width: auto; }
+  .wo-head { flex-direction: column; align-items: flex-start; }
+  .wo-stats { flex-direction: row; text-align: left; gap: 18px; }
+}
+`;
+
 // ─── Inline JS ───────────────────────────────────────────────────────────────
 
 const JS_RUNTIME = `
@@ -825,15 +1281,27 @@ const JS_RUNTIME = `
 // ─── Main ────────────────────────────────────────────────────────────────────
 
 function main(): void {
-  const { path: planPath, timestamp } = locateLatestPlan();
-  console.log(`Reading plan: ${planPath}`);
-  const plan = JSON.parse(readFileSync(planPath, 'utf8')) as MacroPlan;
+  const { path: artifactPath, timestamp, kind } = locateLatestArtifact();
+  console.log(`Reading ${kind} artifact: ${artifactPath}`);
+  const rawJson = JSON.parse(readFileSync(artifactPath, 'utf8'));
   const profile = JSON.parse(readFileSync(PROFILE_PATH, 'utf8')) as AthleteProfile;
   const workouts = loadWorkouts();
   console.log(`Loaded ${workouts.size} workouts (with details parsed)`);
 
-  const html = renderHtml({ plan, profile, workouts });
-  const outPath = join(OUTPUT_DIR, `plan-${timestamp}.html`);
+  let html: string;
+  let outName: string;
+
+  if (kind === 'macro') {
+    const plan = rawJson as MacroPlan;
+    html = renderHtml({ plan, profile, workouts });
+    outName = `plan-${timestamp}.html`;
+  } else {
+    const artifact = parseWeeklyArtifact(rawJson);
+    html = renderWeeklyHtml({ artifact, profile, workouts });
+    outName = `week-${timestamp}.html`;
+  }
+
+  const outPath = join(OUTPUT_DIR, outName);
   writeFileSync(outPath, html);
   console.log(`Wrote: ${outPath}`);
   console.log(`Size: ${(html.length / 1024).toFixed(1)} KB`);
