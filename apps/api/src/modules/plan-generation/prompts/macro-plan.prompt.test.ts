@@ -159,6 +159,86 @@ describe('buildMacroPlanPrompt', () => {
     expect(MACRO_PLAN_SYSTEM_PROMPT).toContain('Do NOT add a third long session');
   });
 
+  it('system prompt includes rule 11 (trainingDaysPerWeek handling) with KB flag and drop ladder', () => {
+    expect(MACRO_PLAN_SYSTEM_PROMPT).toContain('11. TRAININGDAYSPERWEEK HANDLING');
+    // KB-flag passthrough so the LLM knows non-7-day is interpolation.
+    expect(MACRO_PLAN_SYSTEM_PROMPT).toContain(
+      'KB DOES NOT provide 5/6/7-day-per-week variants',
+    );
+    expect(MACRO_PLAN_SYSTEM_PROMPT).toContain('plan-side interpolation');
+    // Per-phase canonical session counts must be embedded so the LLM doesn't
+    // re-derive them from a hallucinated source.
+    expect(MACRO_PLAN_SYSTEM_PROMPT).toContain('Base 3   (Table 8.6C): 13 sessions');
+    expect(MACRO_PLAN_SYSTEM_PROMPT).toContain('Race wk  (Table 8.6F):  7 sessions');
+    // Drop ladder, all four tiers + always-keep block.
+    expect(MACRO_PLAN_SYSTEM_PROMPT).toContain('DROP-PRIORITY LADDER');
+    expect(MACRO_PLAN_SYSTEM_PROMPT).toContain('Tier 1 (drop first):');
+    expect(MACRO_PLAN_SYSTEM_PROMPT).toContain('Tier 4 (drop last):');
+    expect(MACRO_PLAN_SYSTEM_PROMPT).toContain('ALWAYS KEEP');
+    // Citation format the LLM must produce. The literal in the prompt
+    // wraps across a newline so we assert each significant token separately.
+    expect(MACRO_PLAN_SYSTEM_PROMPT).toContain('derives from KB Table 8.6X');
+    expect(MACRO_PLAN_SYSTEM_PROMPT).toMatch(
+      /dropped Y for\s+trainingDaysPerWeek=6/,
+    );
+    // Rule-22 reckoning for 5-day case.
+    expect(MACRO_PLAN_SYSTEM_PROMPT).toContain(
+      'trainingDaysPerWeek=5 violates rule 22',
+    );
+  });
+
+  it('system prompt rule 8 clarifies day count does not reduce total volume', () => {
+    expect(MACRO_PLAN_SYSTEM_PROMPT).toContain(
+      'trainingDaysPerWeek does NOT reduce weeklyVolumeHours',
+    );
+    expect(MACRO_PLAN_SYSTEM_PROMPT).toContain('affects DAY DISTRIBUTION');
+  });
+
+  it('user prompt surfaces trainingDaysPerWeek + the expected keySession count for the athlete', () => {
+    const profile6 = sampleProfile(new Date('2026-08-22T00:00:00Z'));
+    // The sample profile is already trainingDaysPerWeek=6.
+    const { user: user6 } = buildMacroPlanPrompt({
+      profile: profile6,
+      athleteProfileId: 'pid-6',
+      kb: sampleKb(),
+      now: new Date('2026-05-07T00:00:00Z'),
+    });
+    expect(user6).toContain('Training days per week: 6');
+    expect(user6).toContain('KeySessions count per working week: 5');
+    expect(user6).toContain('At 6 days/week, drop 1 session(s) per the ladder');
+    expect(user6).toContain('trainingDaysPerWeek=6');
+  });
+
+  it('user prompt skips the deviation framing when trainingDaysPerWeek=7', () => {
+    const p = sampleProfile(new Date('2026-08-22T00:00:00Z'));
+    p.trainingDaysPerWeek = 7;
+    const { user } = buildMacroPlanPrompt({
+      profile: p,
+      athleteProfileId: 'pid-7',
+      kb: sampleKb(),
+      now: new Date('2026-05-07T00:00:00Z'),
+    });
+    expect(user).toContain('Training days per week: 7');
+    expect(user).toContain('KeySessions count per working week: 6');
+    expect(user).toContain('use Tables 8.6A–F as-is');
+    expect(user).not.toContain('drop 0 session');
+  });
+
+  it('user prompt surfaces the 5-day case correctly (drop 2 sessions, keySessions=4)', () => {
+    const p = sampleProfile(new Date('2026-08-22T00:00:00Z'));
+    p.trainingDaysPerWeek = 5;
+    const { user } = buildMacroPlanPrompt({
+      profile: p,
+      athleteProfileId: 'pid-5',
+      kb: sampleKb(),
+      now: new Date('2026-05-07T00:00:00Z'),
+    });
+    expect(user).toContain('Training days per week: 5');
+    expect(user).toContain('KeySessions count per working week: 4');
+    expect(user).toContain('drop 2 session(s) per the ladder');
+    expect(user).toContain('trainingDaysPerWeek=5');
+  });
+
   it('system prompt does not reference workout codes that do not exist in the KB allowlist', () => {
     // Regression guard: prior versions referenced B/E1, B/M1, B/M2 which are
     // not in WORKOUT_CODES — the LLM hallucinated them as a result.

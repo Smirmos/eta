@@ -10,15 +10,39 @@ import {
 } from '../src/modules/plan-generation/plan-generation.service.js';
 
 const HERE = dirname(fileURLToPath(import.meta.url));
-const PROFILE_PATH = resolve(HERE, 'test-profile.json');
+const DEFAULT_PROFILE_PATH = resolve(HERE, 'test-profile.json');
 const OUTPUT_DIR = resolve(HERE, 'output');
-const PROFILE_ID = 'test-arkadiy-2026-08-22-tallinn';
 
 function timestampForFilename(): string {
   return new Date().toISOString().replace(/[:.]/g, '-');
 }
 
+// Optional CLI arg: --profile=<path>. Defaults to scripts/test-profile.json.
+// Synthetic 5-day fixture lives at scripts/test-profile-5day.json — see its
+// README for context.
+function resolveProfilePath(): string {
+  const arg = process.argv.find((a) => a.startsWith('--profile='));
+  if (!arg) return DEFAULT_PROFILE_PATH;
+  const value = arg.split('=')[1] ?? '';
+  return resolve(process.cwd(), value);
+}
+
+// Profile ID is derived from the profile filename so that fixtures generated
+// against different profiles are easy to distinguish in scripts/output/.
+function profileIdFor(profilePath: string): string {
+  const base = profilePath
+    .split('/')
+    .pop()!
+    .replace(/\.json$/, '');
+  if (base === 'test-profile') return 'test-arkadiy-2026-08-22-tallinn';
+  return `test-${base.replace(/^test-profile-/, '')}-2026-08-22-tallinn`;
+}
+
 async function main(): Promise<void> {
+  const PROFILE_PATH = resolveProfilePath();
+  const PROFILE_ID = profileIdFor(PROFILE_PATH);
+  console.log(`Profile: ${PROFILE_PATH}`);
+  console.log(`Profile ID: ${PROFILE_ID}`);
   const profileText = readFileSync(PROFILE_PATH, 'utf8');
   const rawProfile = JSON.parse(profileText) as unknown;
 

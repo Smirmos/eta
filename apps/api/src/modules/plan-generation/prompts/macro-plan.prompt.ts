@@ -141,6 +141,12 @@ CORE RULES (non-negotiable):
    ceiling. Volume should ramp from min(recentWeeklyHours,
    plannedWeeklyHours) toward plannedWeeklyHours.
 
+   trainingDaysPerWeek does NOT reduce weeklyVolumeHours. The
+   athlete's plannedWeeklyHours field is the source of truth and
+   already reflects their available days. trainingDaysPerWeek
+   affects DAY DISTRIBUTION (how the weekly volume splits across
+   training days) and PER-DAY CAPS only, never the total.
+
 9. LIMITER DISCIPLINE EMPHASIS. If the athlete's
    disciplineDistribution shows any one discipline at < 20% of
    recent training time, that discipline is the LIMITER.
@@ -185,6 +191,18 @@ CORE RULES (non-negotiable):
     EVERY long session MUST land on a day in the athlete's
     profile.longSessionDays. No exceptions.
 
+    This is a HARD VALIDATION RULE — the server-side validator
+    rejects any plan that emits C/AE2, D/AE2, or E/AE* on a day
+    not in longSessionDays. The plan is discarded and you start
+    over. Costs ~2 minutes per failed attempt. Be careful with
+    these three code families specifically.
+
+    Common drift: Friel Table 8.6 has "Basic" aerobic-endurance
+    cells on mid-week days (e.g., Wed run in 8.6C). DO NOT
+    translate those cells into C/AE2 / D/AE2. Mid-week aerobic
+    work uses D/ME1, D/MF2, C/MF2, C/ME1 etc. — see rule 11's
+    LONG-SESSION CODES STILL BIND block.
+
     Each week should normally contain ONE long bike (C/AE2) and
     ONE long run (D/AE2 or equivalent), placed on the two days
     in profile.longSessionDays.
@@ -198,7 +216,154 @@ CORE RULES (non-negotiable):
 
     If profile.longSessionDays has fewer than two practical slots
     in a given week (e.g., race week), reduce to one long session
-    that week and flag with [DEVIATION:].`;
+    that week and flag with [DEVIATION:].
+
+11. TRAININGDAYSPERWEEK HANDLING.
+    Friel's canonical weekly templates (Tables 8.6A–F,
+    knowledge-base/04-weekly-templates.md lines 152–229) prescribe
+    11–13 sessions per week distributed across all 7 days, including
+    multiple two-a-days. Per-phase canonical counts (total weekly
+    sessions, Friel canonical 7-day-with-2-a-days):
+      - Base 1   (Table 8.6A): 12 sessions
+      - Base 2   (Table 8.6B): 12 sessions
+      - Base 3   (Table 8.6C): 13 sessions
+      - Build 1/2 (Table 8.6D): 12 sessions
+      - Peak     (Table 8.6E): 11 sessions
+      - Race wk  (Table 8.6F):  7 sessions (Friday is mandatory off)
+
+    The KB DOES NOT provide 5/6/7-day-per-week variants of these
+    templates (verbatim KB flag at line 231: "Tables 8.6A–F do not
+    vary by training-days-per-week"). Any non-7-day handling below
+    is plan-side interpolation, NOT KB content, and must be flagged.
+
+    KEYSESSION COUNT BY DAY COUNT.
+    Emit keySessions count = trainingDaysPerWeek - 1 in working
+    (non-recovery, non-race) weeks. Recovery weeks and peak/race
+    weeks may have keySessions = trainingDaysPerWeek - 2 (more
+    recovery / skill slots managed by downstream Pass 2). This
+    leaves 1–2 slots per week for non-key recovery/skill sessions
+    that Pass 2 fills in.
+
+    DAY-COUNT BEHAVIOUR (by athleteProfile.trainingDaysPerWeek):
+
+    Case 7 (full Friel canonical):
+      Use Tables 8.6A–F as-is per phase. KeySessions = 6 in working
+      weeks. No deviation flag needed.
+
+    Case 6 (one rest day):
+      Drop ONE session from the canonical 7-day template per the
+      drop ladder below. KeySessions = 5 in working weeks.
+      Each affected MacroPlanWeek MUST include in its citation /
+      notes field the phrase:
+        "derives from KB Table 8.6X with [DEVIATION: dropped Y for
+        trainingDaysPerWeek=6]"
+      where X is the phase table letter and Y names the specific
+      session dropped (e.g., "Wed easy bike").
+
+    Case 5 (two rest days):
+      Drop TWO sessions per the ladder. KeySessions = 4 in working
+      weeks. SAME citation format as case 6.
+      At trainingDaysPerWeek=5, Friel rule 22 (≥3 workouts per sport
+      weekly, p. 214) cannot be satisfied without two-a-days. Two
+      options:
+        (a) Reduce one sport to <3 sessions, flag with [DEVIATION:
+            trainingDaysPerWeek=5 violates rule 22 — sport <discipline>
+            reduced to <N> sessions, accepted per athlete constraint].
+        (b) If athleteProfile permits (no maxWeekdaySessionMinutes
+            violation), suggest a two-a-day on one breakthrough day.
+            Note in week.notes: "Two-a-day suggested on <day> to
+            preserve rule-22 sport coverage".
+      Surface the choice in week.notes either way.
+
+    DROP-PRIORITY LADDER (apply in order; most-droppable first).
+    This ladder is plan-side, NOT Friel KB content — it is the
+    plan generator's chosen priority for what to drop when fewer
+    than 7 training days are available. Drop in this order:
+
+      Tier 1 (drop first):
+        - Speed-skill drills (B/SS1, C/SS1, D/SS1 and the SS2
+          variants). Technique work that doesn't drive fitness.
+
+      Tier 2:
+        - Easy aerobic / recovery sessions (B/AE1, C/AE1, D/AE1).
+          Useful but flex.
+
+      Tier 3:
+        - Non-limiter mid-week endurance (a second swim if swim
+          isn't the limiter, a fourth bike easy session, etc.).
+
+      Tier 4 (drop last):
+        - Build-phase non-breakthrough advanced sessions outside
+          the primary hard-day pair (e.g., Wed easy bike or Thu
+          easy run in 8.6D, both of which are "Basic" cells).
+
+    ALWAYS KEEP (never drop these even at low day counts):
+        - Both long-session-day workouts (C/AE2 long bike,
+          D/AE2 long run, or E/AE1 long brick).
+        - Limiter-discipline breakthrough session per rule 9 above.
+        - Scheduled threshold tests (B/T1, B/T2, C/T1, D/T1) when
+          due for the phase.
+        - At least one breakthrough session per sport that has
+          ≥3 weekly sessions in the canonical template (preserves
+          rule 22 where possible).
+
+    VOLUME REMINDER.
+    trainingDaysPerWeek does NOT reduce weeklyVolumeHours (rule 8).
+    A 5-day-week athlete still hits their plannedWeeklyHours target;
+    they just do longer sessions per day on the days they train.
+
+    LONG-SESSION CODES STILL BIND (cross-reference to rule 10).
+    When fewer than 7 training days are available, the drop ladder
+    NEVER reassigns long-session codes (C/AE2, D/AE2, E/AE1) to
+    non-longSessionDays. These codes are reserved for the long
+    weekend workouts.
+    - For mid-week aerobic-flavoured runs/rides at sub-long volume,
+      pick a different KB code: D/ME1 (run cruise intervals),
+      D/MF2 (run hill fartlek), C/MF2 (bike hilly ride),
+      C/ME1 (bike cruise intervals), or a recovery code (D/AE1,
+      C/AE1) handled in Pass 2.
+    - Do NOT emit D/AE2 on a non-longSessionDay weekday "just because
+      Friel Table 8.6 has an aerobic Wednesday run cell". The Wed
+      cell in 8.6C is a "Basic" ability category, not literally
+      D/AE2 — it resolves to whichever KB code fits the basic
+      aerobic-endurance ability for run that is NOT D/AE2 (the
+      long-run-dedicated code per Appendix D p. 466-467).
+
+    RACE WEEK EXCEPTION.
+    Table 8.6F is already a low-density 7-session week with Friday
+    mandatory off. trainingDaysPerWeek < 7 typically does not bind
+    in race week. Use Table 8.6F (Sunday-race) or its Saturday-race
+    mirror as-is and skip the drop-ladder logic.
+
+    Race-week workout codes MUST come from the short-race-intensity
+    family (aerobic-capacity AC variants), NOT the long-endurance
+    family. Acceptable race-week codes per Table 8.3 (KB
+    04-weekly-templates.md line 318-345 — verbatim: "These BT
+    workouts are 90-second intervals with 3-minute recoveries done
+    at race intensity"):
+      - B/AC1 (swim VO2max intervals), B/AC2 (swim race-pace intervals)
+      - C/AC1, C/AC2, C/AC3 (bike aerobic-capacity intervals)
+      - D/AC1, D/AC2, D/AC3 (run aerobic-capacity intervals)
+      - E/AC1, E/AC2 (brick aerobic-capacity)
+      - B/AE1, C/AE1, D/AE1 (recovery — for the rest-day-adjacent
+        skill/short-session slots only)
+
+    FORBIDDEN in race week:
+      - C/AE2, D/AE2 (long aerobic endurance — Ironman 3-4 h
+        sessions). Race week is taper, not volume.
+      - E/AE1 (long aerobic-endurance brick — same reason).
+      - E/ME1, E/ME2 (muscular-endurance bricks — race-rehearsal
+        intensity is needed but not the long volume).
+      - C/ME*, D/ME* (muscular-endurance threshold work — too
+        fatiguing within 7 days of the race).
+
+    RECOVERY-WEEK EXCEPTION.
+    Recovery weeks (isRecoveryWeek=true) already have reduced session
+    count by design. Apply the drop ladder but recovery sessions
+    (Tier 2 codes) ARE the canonical content of a recovery week and
+    should NOT be dropped first. Drop Tier 1 (skill) first, then
+    Tier 3, then Tier 4 — preserve at least some easy aerobic on
+    each of the 5–6 training days as Friel Ch. 11 prescribes.`;
 
 const DAY_NAME_BY_INDEX: Record<number, string> = {
   0: 'Sunday',
@@ -264,6 +429,14 @@ ${profileJson}
 - Weeks until race: ${profile.weeksUntilRace}
 - Race day-of-week: ${raceDayOfWeek}
 - Athlete's preferred long-session days: ${longSessionDaysText}
+- Training days per week: ${profile.trainingDaysPerWeek}
+- KeySessions count per working week: ${profile.trainingDaysPerWeek - 1}
+  (recovery / peak / race weeks may have ${profile.trainingDaysPerWeek - 2})
+- Day-count handling applies per rule 11. ${
+  profile.trainingDaysPerWeek === 7
+    ? 'At 7 days/week, use Tables 8.6A–F as-is per phase; no deviation flag.'
+    : `At ${profile.trainingDaysPerWeek} days/week, drop ${7 - profile.trainingDaysPerWeek} session(s) per the ladder in rule 11 and flag each affected week with "derives from KB Table 8.6X with [DEVIATION: dropped <Y> for trainingDaysPerWeek=${profile.trainingDaysPerWeek}]".`
+}
 - athleteProfileId to echo in output: "${athleteProfileId}"
 
 ## Compressed-timeline guidance

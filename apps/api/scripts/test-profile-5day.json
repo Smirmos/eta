@@ -1,0 +1,98 @@
+{
+  "experienceLevel": "tri_experienced",
+  "raceDate": "2026-08-22",
+  "raceType": "full_ironman",
+  "weeksUntilRace": 14,
+  "recentWeeklyHours": {
+    "value": 9,
+    "confidence": "medium",
+    "source": "self_reported"
+  },
+  "plannedWeeklyHours": 11,
+  "longestRecentSessions": {
+    "swimMeters": {
+      "value": 3000,
+      "confidence": "high",
+      "source": "self_reported"
+    },
+    "bikeMinutes": {
+      "value": 300,
+      "confidence": "high",
+      "source": "self_reported"
+    },
+    "runMinutes": {
+      "value": 240,
+      "confidence": "high",
+      "source": "self_reported"
+    }
+  },
+  "thresholds": {
+    "swimTPacePer100m": {
+      "value": "2:30",
+      "confidence": "medium",
+      "source": "estimated",
+      "notes": "Derived from 1000m in 25:00. Recommend in-app test week 1."
+    },
+    "bikeFtpWatts": {
+      "value": 170,
+      "confidence": "medium",
+      "source": "estimated",
+      "notes": "Reverse-engineered from Strava power zones. May be stale; recommend FTP test week 1-2."
+    },
+    "bikeThresholdHr": {
+      "value": 165,
+      "confidence": "medium",
+      "source": "estimated",
+      "notes": "Approximated from Strava HR zones (top of Z3)."
+    },
+    "runThresholdPacePerKm": {
+      "value": "4:00",
+      "confidence": "high",
+      "source": "self_reported",
+      "notes": "Consistent with 3:11 marathon."
+    },
+    "runThresholdHr": {
+      "value": 180,
+      "confidence": "high",
+      "source": "self_reported"
+    }
+  },
+  "disciplineDistribution": {
+    "swimPercent": 15,
+    "bikePercent": 50,
+    "runPercent": 35
+  },
+  "fitnessTrend": "stable",
+  "trainingDaysPerWeek": 5,
+  "longSessionDays": [
+    "fri",
+    "sun"
+  ],
+  "mandatoryRestDays": [],
+  "maxWeekdaySessionMinutes": 90,
+  "currentInjuries": [],
+  "recentIllnessOrTimeOff": false,
+  "raceHistory": [
+    {
+      "date": "2025-10-01",
+      "distance": "half_ironman",
+      "notes": "Completed; specifics not provided"
+    },
+    {
+      "date": "2025-04-01",
+      "distance": "standalone_run",
+      "time": "3:11:00",
+      "notes": "Marathon"
+    }
+  ],
+  "source": "mixed",
+  "overallConfidence": "medium",
+  "generatedAt": "2026-05-18T00:00:00Z",
+  "warnings": [
+    "Compressed timeline: 15 weeks until race vs Friel canonical 24-28. Plan generator must handle compressed periodization.",
+    "Bike FTP and threshold HR estimated from Strava zones, not direct measurement. Schedule FTP test in week 1-2.",
+    "Swim T-pace estimated from 1000m time, not measured T-pace. Schedule swim test in week 1.",
+    "Recent intensity distribution (per Strava power zones, last 12 months) shows ~50% time in Z3+, suggesting unpolarized training. Plan should shift toward 80/20 polarized base in early weeks.",
+    "SYNTHETIC FIXTURE: trainingDaysPerWeek=5. At <7 days, Friel rule 22 (>=3 workouts per sport weekly) cannot be satisfied without two-a-days. Plan must flag every affected week with [DEVIATION:] tag and choose either reduced sport coverage or suggest opt-in two-a-days."
+  ]
+}
