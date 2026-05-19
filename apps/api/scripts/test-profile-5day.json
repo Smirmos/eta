@@ -89,7 +89,7 @@
   "overallConfidence": "medium",
   "generatedAt": "2026-05-18T00:00:00Z",
   "warnings": [
-    "Compressed timeline: 15 weeks until race vs Friel canonical 24-28. Plan generator must handle compressed periodization.",
+    "Compressed timeline: 14 weeks until race vs Friel canonical 24-28. Plan generator must handle compressed periodization.",
     "Bike FTP and threshold HR estimated from Strava zones, not direct measurement. Schedule FTP test in week 1-2.",
     "Swim T-pace estimated from 1000m time, not measured T-pace. Schedule swim test in week 1.",
     "Recent intensity distribution (per Strava power zones, last 12 months) shows ~50% time in Z3+, suggesting unpolarized training. Plan should shift toward 80/20 polarized base in early weeks.",

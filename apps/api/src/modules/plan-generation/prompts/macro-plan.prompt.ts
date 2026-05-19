@@ -218,6 +218,23 @@ CORE RULES (non-negotiable):
     in a given week (e.g., race week), reduce to one long session
     that week and flag with [DEVIATION:].
 
+    RULE-28 LONG-RUN-DAY PREFERENCE.
+    Friel rules 25–28 (knowledge-base/04-weekly-templates.md lines
+    568–594, verbatim from p. 232) prefer one of two arrangements:
+      - Split long workouts: long run on Tue/Wed/Thu, long ride on the
+        weekend (rule 27, "best solution").
+      - Same-weekend: long-run-Saturday, long-ride-Sunday (rule 28).
+    A profile.longSessionDays of ['fri', <weekend>] places the long
+    run on Friday, which is neither rule-27 (Tue/Wed/Thu) nor rule-28
+    (Saturday). When this pattern is honoured in a week, that week
+    MUST include in its deviations[]:
+      "[DEVIATION: rule 28 prefers long-run-Sat; honoring
+      profile.longSessionDays which places long-run-Fri]"
+    Do NOT change the placement — the profile is authoritative on
+    which day the athlete actually runs long. The deviation surfaces
+    the divergence from Friel's preferred arrangement so the auditor
+    can see it.
+
 11. TRAININGDAYSPERWEEK HANDLING.
     Friel's canonical weekly templates (Tables 8.6A–F,
     knowledge-base/04-weekly-templates.md lines 152–229) prescribe
@@ -238,11 +255,15 @@ CORE RULES (non-negotiable):
 
     KEYSESSION COUNT BY DAY COUNT.
     Emit keySessions count = trainingDaysPerWeek - 1 in working
-    (non-recovery, non-race) weeks. Recovery weeks and peak/race
-    weeks may have keySessions = trainingDaysPerWeek - 2 (more
-    recovery / skill slots managed by downstream Pass 2). This
-    leaves 1–2 slots per week for non-key recovery/skill sessions
-    that Pass 2 fills in.
+    (non-recovery) weeks AND in race weeks. Race weeks need the
+    higher count because Table 8.3 (and Table 8.6F mirrored for a
+    Saturday race) places "Advanced" BT content on every non-rest,
+    non-race day — including the day-before-race pre-race triple
+    (Friday for a Saturday race, Saturday for a Sunday race).
+    Recovery weeks (isRecoveryWeek=true) and peak weeks may have
+    keySessions = trainingDaysPerWeek - 2 (more recovery / skill
+    slots managed by downstream Pass 2). This leaves 1–2 slots per
+    week for non-key recovery/skill sessions that Pass 2 fills in.
 
     DAY-COUNT BEHAVIOUR (by athleteProfile.trainingDaysPerWeek):
 
@@ -274,6 +295,25 @@ CORE RULES (non-negotiable):
             Note in week.notes: "Two-a-day suggested on <day> to
             preserve rule-22 sport coverage".
       Surface the choice in week.notes either way.
+
+      CONSECUTIVE BT SIDE-EFFECT (5-day specific).
+      The canonical Friel template (Table 8.6D, build phase) places
+      swim BT and bike BT on the SAME day as a two-a-day. With
+      two-a-days unavailable at 5 days/week, those two BT sessions
+      get split across adjacent days — typically Tue swim BT + Wed
+      bike BT — which violates rule 7 (recover-after-BT, p. 210).
+      Whenever a week places BT sessions on two consecutive days
+      (e.g., Tue+Wed, Wed+Thu) AND the canonical Table 8.6X had them
+      on the same day as a two-a-day, that week MUST include in its
+      deviations[]:
+        "[DEVIATION: rule 7 recover-after-BT violated;
+        trainingDaysPerWeek=5 forces consecutive BT placement on
+        <day1>+<day2>. Recommend opt-in 2-a-day or
+        trainingDaysPerWeek=6 if athlete capacity permits.]"
+      This applies to build-phase working weeks especially. Spacing
+      the BT halves to non-adjacent days (e.g., Tue + Thu) is
+      preferred if the resulting layout still respects rule 10 long
+      sessions and the limiter-discipline rule.
 
     DROP-PRIORITY LADDER (apply in order; most-droppable first).
     This ladder is plan-side, NOT Friel KB content — it is the
@@ -344,9 +384,24 @@ CORE RULES (non-negotiable):
       - B/AC1 (swim VO2max intervals), B/AC2 (swim race-pace intervals)
       - C/AC1, C/AC2, C/AC3 (bike aerobic-capacity intervals)
       - D/AC1, D/AC2, D/AC3 (run aerobic-capacity intervals)
-      - E/AC1, E/AC2 (brick aerobic-capacity)
+      - E/AC1, E/AC2 (brick aerobic-capacity) — see SHORT-COURSE-ONLY
+        FLAG below
       - B/AE1, C/AE1, D/AE1 (recovery — for the rest-day-adjacent
         skill/short-session slots only)
+
+    SHORT-COURSE-ONLY FLAG (E/AC1, E/AC2).
+    KB 03-workouts.md p. 480-481 (lines 919, 932) prefaces both E/AC1
+    and E/AC2 with the italicised caveat: "This workout is recommended
+    for short-course triathletes only." When the athlete's raceType is
+    full_ironman or half_ironman (long-course), using E/AC1 or E/AC2
+    in race week REQUIRES a deviation flag:
+      "[DEVIATION: E/AC1/E/AC2 is short-course taxonomy per KB
+      03-workouts.md p. 480-481; using in long-course race week as
+      the closest available approximation. Table 8.3 prescribes a
+      BT brick in race-intensity vocabulary but does not name an
+      appendix code for long-course athletes.]"
+    Short-course races (sprint, olympic) keep current behaviour with
+    no deviation flag.
 
     FORBIDDEN in race week:
       - C/AE2, D/AE2 (long aerobic endurance — Ironman 3-4 h
@@ -431,7 +486,7 @@ ${profileJson}
 - Athlete's preferred long-session days: ${longSessionDaysText}
 - Training days per week: ${profile.trainingDaysPerWeek}
 - KeySessions count per working week: ${profile.trainingDaysPerWeek - 1}
-  (recovery / peak / race weeks may have ${profile.trainingDaysPerWeek - 2})
+  (race week also ${profile.trainingDaysPerWeek - 1}; recovery / peak weeks may have ${profile.trainingDaysPerWeek - 2})
 - Day-count handling applies per rule 11. ${
   profile.trainingDaysPerWeek === 7
     ? 'At 7 days/week, use Tables 8.6A–F as-is per phase; no deviation flag.'
