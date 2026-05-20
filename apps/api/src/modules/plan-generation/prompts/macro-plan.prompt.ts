@@ -448,9 +448,18 @@ export interface BuildMacroPlanPromptInput {
   now?: Date;
 }
 
+// The user message is split into a static prefix (`userStatic`) and a dynamic
+// suffix (`userDynamic`) so the static portion — the interface block plus the
+// full KB, ~80K tokens — can be marked with `cache_control` at the service
+// layer. The KB never varies between calls, so caching it cuts input cost by
+// ~90% on cache hits (5-min TTL, Anthropic ephemeral cache). The `user` field
+// is the concatenation, kept for tests and for callers that want a single
+// string.
 export function buildMacroPlanPrompt(input: BuildMacroPlanPromptInput): {
   system: string;
   user: string;
+  userStatic: string;
+  userDynamic: string;
 } {
   const { profile, athleteProfileId, kb, now } = input;
   const today = now ?? new Date();
@@ -471,7 +480,41 @@ export function buildMacroPlanPrompt(input: BuildMacroPlanPromptInput): {
   const longSessionDaysText =
     longSessionDays.length === 0 ? 'none specified' : longSessionDays.join(', ');
 
-  const user = `# Athlete Profile
+  const userStatic = `# Output format
+
+Output a single JSON object matching this TypeScript interface:
+
+\`\`\`typescript
+${MACRO_PLAN_INTERFACE_BLOCK}
+\`\`\`
+
+# Knowledge Base
+
+The following are extracted methodology files from Joe Friel's
+*The Triathlete's Training Bible* (5th ed.). Cite specific files
+and sections in your plan output.
+
+## File: knowledge-base/01-zones.md
+
+${kb.zones}
+
+## File: knowledge-base/02-atp-structure.md
+
+${kb.atpStructure}
+
+## File: knowledge-base/03-workouts.md
+
+${kb.workouts}
+
+## File: knowledge-base/04-weekly-templates.md
+
+${kb.weeklyTemplates}
+
+## File: knowledge-base/05-recovery.md
+
+${kb.recovery}`;
+
+  const userDynamic = `# Athlete Profile
 
 \`\`\`json
 ${profileJson}
@@ -488,10 +531,10 @@ ${profileJson}
 - KeySessions count per working week: ${profile.trainingDaysPerWeek - 1}
   (race week also ${profile.trainingDaysPerWeek - 1}; recovery / peak weeks may have ${profile.trainingDaysPerWeek - 2})
 - Day-count handling applies per rule 11. ${
-  profile.trainingDaysPerWeek === 7
-    ? 'At 7 days/week, use Tables 8.6A–F as-is per phase; no deviation flag.'
-    : `At ${profile.trainingDaysPerWeek} days/week, drop ${7 - profile.trainingDaysPerWeek} session(s) per the ladder in rule 11 and flag each affected week with "derives from KB Table 8.6X with [DEVIATION: dropped <Y> for trainingDaysPerWeek=${profile.trainingDaysPerWeek}]".`
-}
+    profile.trainingDaysPerWeek === 7
+      ? 'At 7 days/week, use Tables 8.6A–F as-is per phase; no deviation flag.'
+      : `At ${profile.trainingDaysPerWeek} days/week, drop ${7 - profile.trainingDaysPerWeek} session(s) per the ladder in rule 11 and flag each affected week with "derives from KB Table 8.6X with [DEVIATION: dropped <Y> for trainingDaysPerWeek=${profile.trainingDaysPerWeek}]".`
+  }
 - athleteProfileId to echo in output: "${athleteProfileId}"
 
 ## Compressed-timeline guidance
@@ -537,44 +580,12 @@ ${
 - The day(s) after the race become complete rest / travel-home.`
 }
 
-## Output format
-
-Output a single JSON object matching this TypeScript interface:
-
-\`\`\`typescript
-${MACRO_PLAN_INTERFACE_BLOCK}
-\`\`\`
-
-# Knowledge Base
-
-The following are extracted methodology files from Joe Friel's
-*The Triathlete's Training Bible* (5th ed.). Cite specific files
-and sections in your plan output.
-
-## File: knowledge-base/01-zones.md
-
-${kb.zones}
-
-## File: knowledge-base/02-atp-structure.md
-
-${kb.atpStructure}
-
-## File: knowledge-base/03-workouts.md
-
-${kb.workouts}
-
-## File: knowledge-base/04-weekly-templates.md
-
-${kb.weeklyTemplates}
-
-## File: knowledge-base/05-recovery.md
-
-${kb.recovery}
-
 # Final Instructions
 
 Generate the MacroPlan now. Output ONLY the JSON object, no
 other content.`;
 
-  return { system: MACRO_PLAN_SYSTEM_PROMPT, user };
+  const user = `${userStatic}\n\n${userDynamic}`;
+
+  return { system: MACRO_PLAN_SYSTEM_PROMPT, user, userStatic, userDynamic };
 }

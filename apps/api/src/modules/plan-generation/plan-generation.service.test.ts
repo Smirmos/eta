@@ -123,23 +123,27 @@ function fakeAnthropic(
   opts: { input?: number; output?: number } = {},
 ): AnthropicLike {
   return {
-    messages: {
-      create: vi.fn(
-        async () =>
-          ({
-            id: 'msg_test',
-            type: 'message',
-            role: 'assistant',
-            model: 'claude-opus-4-7',
-            content: [{ type: 'text', text } as Anthropic.Messages.TextBlock],
-            stop_reason: 'end_turn',
-            stop_sequence: null,
-            usage: {
-              input_tokens: opts.input ?? 1234,
-              output_tokens: opts.output ?? 567,
-            },
-          }) as unknown as Anthropic.Messages.Message,
-      ),
+    beta: {
+      messages: {
+        create: vi.fn(
+          async () =>
+            ({
+              id: 'msg_test',
+              type: 'message',
+              role: 'assistant',
+              model: 'claude-opus-4-7',
+              content: [{ type: 'text', text } as Anthropic.Beta.Messages.BetaTextBlock],
+              stop_reason: 'end_turn',
+              stop_sequence: null,
+              usage: {
+                input_tokens: opts.input ?? 1234,
+                output_tokens: opts.output ?? 567,
+                cache_creation_input_tokens: 0,
+                cache_read_input_tokens: 0,
+              },
+            }) as unknown as Anthropic.Beta.Messages.BetaMessage,
+        ),
+      },
     },
   } as unknown as AnthropicLike;
 }
@@ -202,10 +206,12 @@ describe('PlanGenerationService', () => {
 
   it('propagates Anthropic API errors as PlanGenerationError', async () => {
     const failingClient: AnthropicLike = {
-      messages: {
-        create: vi.fn(async () => {
-          throw new Error('upstream timeout');
-        }),
+      beta: {
+        messages: {
+          create: vi.fn(async () => {
+            throw new Error('upstream timeout');
+          }),
+        },
       },
     } as unknown as AnthropicLike;
     const service = new PlanGenerationService(makeConfig(), makeKbLoader(), () => failingClient);

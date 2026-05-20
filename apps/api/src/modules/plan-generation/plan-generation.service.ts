@@ -20,6 +20,10 @@ export interface GenerateMacroPlanResult {
   usage: {
     inputTokens: number;
     outputTokens: number;
+    /** Tokens written to the prompt cache on this call (billed at 1.25×). */
+    cacheCreationInputTokens: number;
+    /** Tokens read from the prompt cache on this call (billed at 0.1×). */
+    cacheReadInputTokens: number;
   };
   durationMs: number;
 }
@@ -92,7 +96,7 @@ export function validateDayConstraints(plan: MacroPlan, profile: AthleteProfile)
   }
 }
 
-export type AnthropicLike = Pick<Anthropic, 'messages'>;
+export type AnthropicLike = Pick<Anthropic, 'beta'>;
 export type AnthropicFactory = (apiKey: string) => AnthropicLike;
 
 const defaultAnthropicFactory: AnthropicFactory = (apiKey) =>
@@ -122,7 +126,7 @@ export class PlanGenerationService {
   ): Promise<GenerateMacroPlanResult> {
     const profile = this.validateProfile(rawProfile);
     const kb = this.kbLoader.get();
-    const { system, user } = buildMacroPlanPrompt({
+    const { system, userStatic, userDynamic } = buildMacroPlanPrompt({
       profile,
       athleteProfileId,
       kb,
@@ -130,14 +134,27 @@ export class PlanGenerationService {
 
     this.logger.log(`Calling Anthropic API (model=${this.model}, max_tokens=${this.maxTokens})...`);
 
+    // Prompt caching: the system block (~10K tokens of methodology) and the
+    // userStatic block (~80K tokens of interface + KB) never vary between
+    // calls. Marking both with ephemeral cache_control creates two cache
+    // breakpoints, giving ~90% input-cost reduction on cache hits (5-min TTL).
+    // SDK 0.32 surfaces cache_control via the beta.messages namespace.
     const start = Date.now();
-    let response: Anthropic.Messages.Message;
+    let response: Anthropic.Beta.Messages.BetaMessage;
     try {
-      response = await this.client.messages.create({
+      response = await this.client.beta.messages.create({
         model: this.model,
         max_tokens: this.maxTokens,
-        system,
-        messages: [{ role: 'user', content: user }],
+        system: [{ type: 'text', text: system, cache_control: { type: 'ephemeral' } }],
+        messages: [
+          {
+            role: 'user',
+            content: [
+              { type: 'text', text: userStatic, cache_control: { type: 'ephemeral' } },
+              { type: 'text', text: userDynamic },
+            ],
+          },
+        ],
       });
     } catch (err) {
       throw new PlanGenerationError(`Anthropic API call failed: ${describeError(err)}`, {
@@ -150,6 +167,8 @@ export class PlanGenerationService {
     const usage = {
       inputTokens: response.usage.input_tokens,
       outputTokens: response.usage.output_tokens,
+      cacheCreationInputTokens: response.usage.cache_creation_input_tokens ?? 0,
+      cacheReadInputTokens: response.usage.cache_read_input_tokens ?? 0,
     };
 
     let parsed: unknown;
@@ -221,9 +240,9 @@ export class PlanGenerationService {
   }
 }
 
-function extractTextFromResponse(response: Anthropic.Messages.Message): string {
+function extractTextFromResponse(response: Anthropic.Beta.Messages.BetaMessage): string {
   const text = response.content
-    .filter((block): block is Anthropic.Messages.TextBlock => block.type === 'text')
+    .filter((block): block is Anthropic.Beta.Messages.BetaTextBlock => block.type === 'text')
     .map((block) => block.text)
     .join('');
   return text;

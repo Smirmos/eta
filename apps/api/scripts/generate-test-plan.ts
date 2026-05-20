@@ -66,7 +66,9 @@ async function main(): Promise<void> {
     console.log(`Validation: PASS, weeks: ${result.plan.totalWeeks}`);
     console.log(`Duration: ${result.durationMs}ms`);
     console.log(
-      `Tokens — input: ${result.usage.inputTokens}, output: ${result.usage.outputTokens}`,
+      `Tokens — input: ${result.usage.inputTokens}, output: ${result.usage.outputTokens}, ` +
+        `cache_creation: ${result.usage.cacheCreationInputTokens}, ` +
+        `cache_read: ${result.usage.cacheReadInputTokens}`,
     );
     console.log(`Approx. input chars (script-side estimate, /4 ≈ tokens): ${inputCharCount} chars`);
     console.log(`Plan written to: ${planPath}`);
