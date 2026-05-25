@@ -1,7 +1,12 @@
-import type { AthleteProfile, MacroPlan, MacroPlanWeek } from '@eta/shared-types';
+import type {
+  AthleteProfile,
+  MacroPlan,
+  MacroPlanWeek,
+  WorkoutCompleted,
+} from '@eta/shared-types';
 import { describe, expect, it } from 'vitest';
 import { PASS2_SYSTEM_PROMPT, buildPass2Prompt } from './pass2-prompt.js';
-import type { KbSlice, RecentWorkoutSnapshot } from './types.js';
+import type { KbSlice } from './types.js';
 
 const sampleProfile = (): AthleteProfile => ({
   experienceLevel: 'tri_experienced',
@@ -178,7 +183,7 @@ describe('buildPass2Prompt', () => {
   });
 
   it('user prompt enumerates non-empty recentWorkouts', () => {
-    const recents: RecentWorkoutSnapshot[] = [
+    const recents: WorkoutCompleted[] = [
       {
         date: '2026-05-04',
         workoutCode: 'D/AE2',

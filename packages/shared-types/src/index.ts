@@ -3,3 +3,5 @@ export * from './athlete-profile.schema.js';
 export * from './plan.js';
 export * from './plan.schema.js';
 export * from './workout-codes.js';
+export * from './workout-completed.js';
+export * from './workout-completed.schema.js';

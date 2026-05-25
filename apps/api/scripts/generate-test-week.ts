@@ -8,13 +8,13 @@ import {
   macroPlanSchema,
   type AthleteProfile,
   type MacroPlan,
+  type WorkoutCompleted,
 } from '@eta/shared-types';
 import { AppModule } from '../src/app.module.js';
 import {
   Pass2GenerationError,
   Pass2GenerationService,
 } from '../src/modules/plan-generation/pass2/pass2.service.js';
-import type { RecentWorkoutSnapshot } from '../src/modules/plan-generation/pass2/types.js';
 
 const HERE = dirname(fileURLToPath(import.meta.url));
 const OUTPUT_DIR = resolve(HERE, 'output');
@@ -65,7 +65,7 @@ async function main(): Promise<void> {
   const athleteProfile: AthleteProfile = profileParsed.data;
 
   // v1 single-user pre-Strava-sync: no real recent workouts.
-  const recentWorkouts: RecentWorkoutSnapshot[] = [];
+  const recentWorkouts: WorkoutCompleted[] = [];
 
   console.log(`Macro plan: ${macroPath}`);
   console.log(

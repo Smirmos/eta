@@ -1,5 +1,11 @@
-import type { AthleteProfile, DayOfWeek, MacroPlan, MacroPlanWeek } from '@eta/shared-types';
-import type { KbSlice, RecentWorkoutSnapshot } from './types.js';
+import type {
+  AthleteProfile,
+  DayOfWeek,
+  MacroPlan,
+  MacroPlanWeek,
+  WorkoutCompleted,
+} from '@eta/shared-types';
+import type { KbSlice } from './types.js';
 
 // Keep this TS interface block in sync with packages/shared-types/src/plan.ts.
 // Schema validation is the runtime gate; the embedded block is what the LLM
@@ -350,7 +356,7 @@ export interface BuildPass2PromptInput {
   macroPlan: MacroPlan;
   targetWeek: MacroPlanWeek;
   athleteProfile: AthleteProfile;
-  recentWorkouts: RecentWorkoutSnapshot[];
+  recentWorkouts: WorkoutCompleted[];
   kb: KbSlice;
 }
 

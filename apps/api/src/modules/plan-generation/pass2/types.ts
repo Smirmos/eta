@@ -4,20 +4,8 @@ import type {
   Discipline,
   MacroPlan,
   WeeklyDetail,
-  WorkoutCode,
+  WorkoutCompleted,
 } from '@eta/shared-types';
-
-// Minimum shape Pass 2 needs to ground rationale text in actual recent work.
-// TODO(ETA-32): replace with the canonical WorkoutCompleted schema from
-// @eta/shared-types once ETA-32 lands. Whatever ETA-32 produces will be a
-// superset; the rename will be a one-line import change.
-export interface RecentWorkoutSnapshot {
-  date: string;
-  workoutCode: WorkoutCode;
-  actualTss?: number;
-  perceivedExertion?: number;
-  notes?: string;
-}
 
 export interface KbSlice {
   zones: string;
@@ -32,7 +20,7 @@ export interface Pass2Input {
   macroPlan: MacroPlan;
   targetWeekIndex: number;
   athleteProfile: AthleteProfile;
-  recentWorkouts: RecentWorkoutSnapshot[];
+  recentWorkouts: WorkoutCompleted[];
 }
 
 export interface Pass2ComputedSummary {
