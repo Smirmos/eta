@@ -8,8 +8,8 @@ import type {
 } from '@eta/shared-types';
 
 // Minimum shape Pass 2 needs to ground rationale text in actual recent work.
-// TODO(ETA-28): replace with the canonical WorkoutCompleted schema from
-// @eta/shared-types once ETA-28 lands. Whatever ETA-28 produces will be a
+// TODO(ETA-32): replace with the canonical WorkoutCompleted schema from
+// @eta/shared-types once ETA-32 lands. Whatever ETA-32 produces will be a
 // superset; the rename will be a one-line import change.
 export interface RecentWorkoutSnapshot {
   date: string;
