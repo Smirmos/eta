@@ -1,6 +1,16 @@
 import type { AthleteProfile, DayOfWeek, WeeklyDetail, WorkoutCompleted } from '@eta/shared-types';
 import type { HardRuleOutput, Pass3ComputedInputs, Pass3KbSlice } from './types.js';
 
+const DAY_BY_INDEX: ReadonlyArray<DayOfWeek> = [
+  'mon',
+  'tue',
+  'wed',
+  'thu',
+  'fri',
+  'sat',
+  'sun',
+];
+
 // Keep this TS interface block in sync with packages/shared-types/src/plan.ts
 // (AdaptationSuggestion, WorkoutAdjustment, AdaptationAction). Schema validation
 // is the runtime gate; the embedded block is what the LLM reads to know the
@@ -195,20 +205,9 @@ CORE RULES (non-negotiable):
     "Last week's completed workouts" block. Do NOT make up RPE values,
     sleep quality, or weather. Use only the facts you are given.`;
 
-const DAY_OFFSET: Record<DayOfWeek, number> = {
-  mon: 0,
-  tue: 1,
-  wed: 2,
-  thu: 3,
-  fri: 4,
-  sat: 5,
-  sun: 6,
-};
-
 function isoDayOfWeek(iso: string): DayOfWeek {
   const jsDay = new Date(`${iso}T00:00:00Z`).getUTCDay();
-  const idx = (jsDay + 6) % 7;
-  return (['mon', 'tue', 'wed', 'thu', 'fri', 'sat', 'sun'] as const)[idx] as DayOfWeek;
+  return DAY_BY_INDEX[(jsDay + 6) % 7] as DayOfWeek;
 }
 
 function formatCompleted(w: WorkoutCompleted): string {
