@@ -45,7 +45,6 @@ async function main(): Promise<void> {
   console.log(
     `Inputs: completedLastWeek=${input.completedLastWeek.length} entries, ` +
       `readinessHistory=${input.readinessHistory.length} day(s), ` +
-      `hardRules=${input.hardRuleOutput.forcedAdjustments.length}, ` +
       `seed=${input.seedDailyTss?.length ?? 0} days`,
   );
 
@@ -96,6 +95,10 @@ async function main(): Promise<void> {
       {},
     );
     console.log(`Adjustments: ${JSON.stringify(actions)}`);
+    console.log(
+      `Hard rules: ${result.output.hardRulesApplied.length} firing(s), ` +
+        `${result.output.hardRuleOutput.forcedAdjustments.length} forced adjustment(s)`,
+    );
     if (result.output.suggestion.weekLevelNote !== undefined) {
       console.log(`Week-level note: ${result.output.suggestion.weekLevelNote}`);
     }

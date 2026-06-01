@@ -7,13 +7,11 @@ import type {
   WorkoutCompleted,
 } from '@eta/shared-types';
 import type { DailyTss } from '@eta/training-load';
+import type { AppliedRule } from './hard-rules.js';
 
-// ─── Hard-rules pre-pass stub ────────────────────────────────────────────────
-// Future ticket will deliver a deterministic pre-pass that emits forced
-// changes (e.g., auto-rest after a missed long workout). Pass 3 runs AFTER
-// hard rules and only produces soft adjustments on top. For v1 the stub is
-// always empty; Pass 3 still receives it so the prompt + postprocess can
-// reference "no hard rules ran today".
+// ─── Hard-rules pre-pass ─────────────────────────────────────────────────────
+// Deterministic pre-pass implemented in hard-rules.ts (ETA-21). Pass 3 runs
+// AFTER hard rules and only produces soft adjustments on top.
 
 export type HardRuleAction = 'force_rest' | 'force_replace';
 
@@ -59,14 +57,12 @@ export interface Pass3Input {
   completedLastWeek: WorkoutCompleted[];
 
   /**
-   * Per-day readiness/HRV readings covering today + the prior days needed for
-   * Pass 3's 7-day average and the hard-rules HRV rolling-baseline window.
-   * Must contain at least one reading dated `< weeklyDraft.weekStartDate`.
+   * Per-day readiness/HRV readings covering each upcoming-week date that
+   * needs rule evaluation, plus enough prior days to back the HRV baseline
+   * window (hrvRollingWindowDays from config). The hard-rules pre-pass also
+   * uses this for the readiness-band lookup per workout date.
    */
   readinessHistory: DailyReadinessReading[];
-
-  /** Output of the deterministic hard-rules pre-pass. Stubbed (empty) in v1. */
-  hardRuleOutput: HardRuleOutput;
 
   athleteProfile: AthleteProfile;
 
@@ -94,6 +90,10 @@ export interface Pass3ComputedInputs {
 export interface Pass3Output {
   suggestion: AdaptationSuggestion;
   computed: Pass3ComputedInputs;
+  /** Forced changes the hard-rules pre-pass produced; also embedded in the prompt. */
+  hardRuleOutput: HardRuleOutput;
+  /** Full hard-rule audit trail (firings, suppressions, noops). */
+  hardRulesApplied: AppliedRule[];
   /** Unique KB citations referenced by non-keep adjustments. */
   appliedSources: string[];
 }

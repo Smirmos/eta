@@ -14,7 +14,6 @@ import {
   Pass3GenerationError,
   Pass3GenerationService,
 } from './pass3.service.js';
-import type { HardRuleOutput } from './types.js';
 
 // sampleDraft starts on 2026-05-11 → 7-day readiness window is 05-04..05-10.
 function stubReadinessHistory(score: number): DailyReadinessReading[] {
@@ -33,6 +32,13 @@ const ENV: Record<string, unknown> = {
   ANTHROPIC_API_KEY: 'test-key',
   ANTHROPIC_MODEL: 'claude-opus-4-7',
   ANTHROPIC_MAX_TOKENS: 16000,
+  HRV_DROP_NOTE_PCT: 5,
+  HRV_DROP_DOWNGRADE_PCT: 10,
+  HRV_DROP_FORCED_REST_PCT: 20,
+  HRV_STREAK_DROP_PCT: 5,
+  HRV_STREAK_DAYS: 3,
+  HRV_ROLLING_WINDOW_DAYS: 7,
+  HRV_DOWNGRADE_DURATION_RATIO: 0.7,
 };
 
 function makeConfig(): ConfigService<Env, true> {
@@ -164,8 +170,6 @@ function validSuggestion(): AdaptationSuggestion {
   };
 }
 
-const emptyHardRules: HardRuleOutput = { forcedAdjustments: [] };
-
 describe('Pass3GenerationService', () => {
   it('returns a parsed AdaptationSuggestion when the LLM emits valid JSON', async () => {
     const client = fakeAnthropic(JSON.stringify(validSuggestion()), {
@@ -180,7 +184,6 @@ describe('Pass3GenerationService', () => {
       weeklyDraft: sampleDraft(),
       completedLastWeek: [],
       readinessHistory: stubReadinessHistory(50),
-      hardRuleOutput: emptyHardRules,
       athleteProfile: sampleProfile(),
     });
 
@@ -210,7 +213,6 @@ describe('Pass3GenerationService', () => {
       weeklyDraft: sampleDraft(),
       completedLastWeek: [],
       readinessHistory: stubReadinessHistory(42),
-      hardRuleOutput: emptyHardRules,
       athleteProfile: sampleProfile(),
     });
 
@@ -227,7 +229,6 @@ describe('Pass3GenerationService', () => {
         weeklyDraft: sampleDraft(),
         completedLastWeek: [],
         readinessHistory: stubReadinessHistory(50),
-        hardRuleOutput: emptyHardRules,
         athleteProfile: sampleProfile(),
       }),
     ).rejects.toMatchObject({
@@ -245,7 +246,6 @@ describe('Pass3GenerationService', () => {
         weeklyDraft: sampleDraft(),
         completedLastWeek: [],
         readinessHistory: stubReadinessHistory(50),
-        hardRuleOutput: emptyHardRules,
         athleteProfile: sampleProfile(),
       });
       expect.fail('should throw');
@@ -268,7 +268,6 @@ describe('Pass3GenerationService', () => {
         weeklyDraft: sampleDraft(),
         completedLastWeek: [],
         readinessHistory: stubReadinessHistory(50),
-        hardRuleOutput: emptyHardRules,
         athleteProfile: sampleProfile(),
       });
       expect.fail('should throw');
@@ -296,7 +295,6 @@ describe('Pass3GenerationService', () => {
         weeklyDraft: sampleDraft(),
         completedLastWeek: [],
         readinessHistory: stubReadinessHistory(50),
-        hardRuleOutput: emptyHardRules,
         athleteProfile: sampleProfile(),
       }),
     ).rejects.toMatchObject({
@@ -333,7 +331,6 @@ describe('Pass3GenerationService', () => {
       weeklyDraft: sampleDraft(),
       completedLastWeek: [],
       readinessHistory: stubReadinessHistory(50),
-      hardRuleOutput: emptyHardRules,
       athleteProfile: sampleProfile(),
     });
 
@@ -353,5 +350,54 @@ describe('Pass3GenerationService', () => {
     expect(arg.messages[0]!.content[1]!.cache_control).toBeUndefined();
     expect(arg.messages[0]!.content[0]!.text).toContain('interface AdaptationSuggestion');
     expect(arg.messages[0]!.content[1]!.text).toContain('Computed inputs');
+  });
+
+  it('runs hard-rules pre-pass and surfaces forced adjustments in the prompt + output', async () => {
+    // Readiness score 30 (< 50) on the day of the drafted workout — readiness.red.
+    const lowReadinessHistory = stubReadinessHistory(30).concat([
+      { date: '2026-05-12', readinessScore: 30, source: 'oura' },
+    ]);
+    const createSpy = vi.fn(
+      async () =>
+        ({
+          id: 'msg',
+          type: 'message',
+          role: 'assistant',
+          model: 'claude-opus-4-7',
+          content: [
+            { type: 'text', text: JSON.stringify(validSuggestion()) } as Anthropic.Beta.Messages.BetaTextBlock,
+          ],
+          stop_reason: 'end_turn',
+          stop_sequence: null,
+          usage: {
+            input_tokens: 1,
+            output_tokens: 1,
+            cache_creation_input_tokens: 0,
+            cache_read_input_tokens: 0,
+          },
+        }) as unknown as Anthropic.Beta.Messages.BetaMessage,
+    );
+    const client = { beta: { messages: { create: createSpy } } } as unknown as AnthropicLike;
+    const service = new Pass3GenerationService(makeConfig(), makeKbLoader(), () => client);
+
+    const result = await service.generateAdaptation({
+      weeklyDraft: sampleDraft(),
+      completedLastWeek: [],
+      readinessHistory: lowReadinessHistory,
+      athleteProfile: sampleProfile(),
+    });
+
+    // Prompt received the force_rest line in the hard-rule block.
+    const calls = createSpy.mock.calls as unknown as Array<
+      [{ messages: Array<{ content: Array<{ text: string }> }> }]
+    >;
+    const userDynamic = calls[0]![0]!.messages[0]!.content[1]!.text;
+    expect(userDynamic).toContain('2026-05-12: force_rest');
+    expect(userDynamic).toContain('Daily readiness 30');
+
+    // Pass3Output includes the hard-rule artefacts.
+    expect(result.output.hardRuleOutput.forcedAdjustments).toHaveLength(1);
+    expect(result.output.hardRuleOutput.forcedAdjustments[0]!.action).toBe('force_rest');
+    expect(result.output.hardRulesApplied.some((r) => r.ruleId === 'readiness.red')).toBe(true);
   });
 });

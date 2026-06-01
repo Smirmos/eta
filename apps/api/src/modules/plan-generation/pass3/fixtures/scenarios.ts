@@ -5,7 +5,7 @@ import type {
   WorkoutCompleted,
 } from '@eta/shared-types';
 import type { DailyTss } from '@eta/training-load';
-import type { HardRuleOutput, Pass3Input } from '../types.js';
+import type { Pass3Input } from '../types.js';
 
 // ─── Shared base ─────────────────────────────────────────────────────────────
 // Six-day Base 3 week starting Mon 2026-06-01. Mon is the mandatory rest day;
@@ -173,8 +173,6 @@ function flatReadinessHistory(score: number): DailyReadinessReading[] {
   }));
 }
 
-const NO_HARD_RULES: HardRuleOutput = { forcedAdjustments: [] };
-
 // ─── Scenario A: perfect week ────────────────────────────────────────────────
 // Every workout completed at planned TSS, RPE 5-6, readiness high.
 // Expected coach response: mostly 'keep', optionally one progression nudge.
@@ -252,7 +250,6 @@ function perfectWeek(): Pass3Input {
     weeklyDraft: weeklyDraft(),
     completedLastWeek,
     readinessHistory: flatReadinessHistory(72),
-    hardRuleOutput: NO_HARD_RULES,
     athleteProfile: profile(),
   };
 }
@@ -331,7 +328,6 @@ function missedLongRide(): Pass3Input {
     weeklyDraft: weeklyDraft(),
     completedLastWeek,
     readinessHistory: flatReadinessHistory(48),
-    hardRuleOutput: NO_HARD_RULES,
     athleteProfile: profile(),
   };
 }
@@ -419,7 +415,6 @@ function lowRecovery(): Pass3Input {
     weeklyDraft: weeklyDraft(),
     completedLastWeek,
     readinessHistory: flatReadinessHistory(30),
-    hardRuleOutput: NO_HARD_RULES,
     athleteProfile: profile(),
   };
 }
@@ -514,7 +509,6 @@ function fitnessLeap(): Pass3Input {
     weeklyDraft: weeklyDraft(),
     completedLastWeek,
     readinessHistory: flatReadinessHistory(82),
-    hardRuleOutput: NO_HARD_RULES,
     athleteProfile: profile(),
     seedDailyTss,
   };

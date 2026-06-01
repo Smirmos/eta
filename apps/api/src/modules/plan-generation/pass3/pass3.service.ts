@@ -5,6 +5,7 @@ import { adaptationSuggestionSchema, type AdaptationSuggestion } from '@eta/shar
 import type { ZodIssue } from 'zod';
 import type { Env } from '../../../config/env.schema.js';
 import type { KnowledgeBaseLoader } from '../knowledge-base.loader.js';
+import { applyHardRules, loadHardRulesConfig, type HardRulesConfig } from './hard-rules.js';
 import { buildPass3KbSlice, computePass3Inputs } from './pass3-context-builder.js';
 import { buildPass3Prompt } from './pass3-prompt.js';
 import {
@@ -63,6 +64,7 @@ export class Pass3GenerationService {
   private readonly client: AnthropicLike;
   private readonly model: string;
   private readonly maxTokens: number;
+  private readonly hardRulesConfig: HardRulesConfig;
 
   constructor(
     private readonly config: ConfigService<Env, true>,
@@ -73,6 +75,7 @@ export class Pass3GenerationService {
     this.client = anthropicFactory(apiKey);
     this.model = this.config.get('ANTHROPIC_MODEL', { infer: true });
     this.maxTokens = this.config.get('ANTHROPIC_MAX_TOKENS', { infer: true });
+    this.hardRulesConfig = loadHardRulesConfig(this.config);
   }
 
   async generateAdaptation(input: Pass3Input): Promise<GenerateAdaptationResult> {
@@ -86,18 +89,26 @@ export class Pass3GenerationService {
       seedDailyTss: input.seedDailyTss,
     });
 
+    const { output: hardRuleOutput, appliedRules: hardRulesApplied } = applyHardRules({
+      weeklyDraft: input.weeklyDraft,
+      readinessHistory: input.readinessHistory,
+      computed,
+      config: this.hardRulesConfig,
+    });
+
     this.logger.log(
       `Pass 3: week starting ${input.weeklyDraft.weekStartDate} (${input.weeklyDraft.phase}). ` +
         `Inputs: lastWeekTss=${computed.lastWeekTss.toFixed(0)}, ctl=${computed.currentCtl.toFixed(1)}, ` +
         `atl=${computed.currentAtl.toFixed(1)}, tsb=${computed.currentTsb.toFixed(1)}, ` +
-        `readiness=${computed.avgReadinessLast7d}. KB slice: ${kb.totalChars} chars.`,
+        `readiness=${computed.avgReadinessLast7d}. KB slice: ${kb.totalChars} chars. ` +
+        `Hard rules: ${hardRulesApplied.length} firing(s) → ${hardRuleOutput.forcedAdjustments.length} forced adjustment(s).`,
     );
 
     const { system, userStatic, userDynamic } = buildPass3Prompt({
       weeklyDraft: input.weeklyDraft,
       completedLastWeek: input.completedLastWeek,
       computed,
-      hardRuleOutput: input.hardRuleOutput,
+      hardRuleOutput,
       athleteProfile: input.athleteProfile,
       kb,
     });
@@ -200,6 +211,8 @@ export class Pass3GenerationService {
       output: {
         suggestion,
         computed,
+        hardRuleOutput,
+        hardRulesApplied,
         appliedSources,
       },
       rawResponse,
