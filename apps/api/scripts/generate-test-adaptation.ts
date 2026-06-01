@@ -44,7 +44,7 @@ async function main(): Promise<void> {
   );
   console.log(
     `Inputs: completedLastWeek=${input.completedLastWeek.length} entries, ` +
-      `readiness=${input.readinessLast7d}, ` +
+      `readinessHistory=${input.readinessHistory.length} day(s), ` +
       `hardRules=${input.hardRuleOutput.forcedAdjustments.length}, ` +
       `seed=${input.seedDailyTss?.length ?? 0} days`,
   );

@@ -1,4 +1,4 @@
-import type { Phase, WorkoutCompleted } from '@eta/shared-types';
+import type { DailyReadinessReading, Phase, WorkoutCompleted } from '@eta/shared-types';
 import { computeLoadHistory, seedFromHistory, type DailyTss } from '@eta/training-load';
 import type { KnowledgeBase } from '../knowledge-base.loader.js';
 import type { Pass3ComputedInputs, Pass3KbSlice } from './types.js';
@@ -75,9 +75,29 @@ export interface ComputePass3InputsInput {
   /** ISO date "YYYY-MM-DD" — first day (Monday) of the upcoming week. */
   upcomingWeekStartDate: string;
   completedLastWeek: WorkoutCompleted[];
-  readinessLast7d: number;
+  readinessHistory: DailyReadinessReading[];
   /** Daily TSS history before the 7-day window, used to seed CTL/ATL. */
   seedDailyTss?: DailyTss[];
+}
+
+/**
+ * Average the `readinessScore` of readings whose date falls inside
+ * `[upcomingWeekStartDate − 7d, upcomingWeekStartDate − 1d]`. Readings
+ * without a `readinessScore` are skipped. Returns 50 (neutral) when the
+ * window has no scored readings — matches the legacy stub-50 baseline.
+ */
+function avgReadinessInWindow(
+  history: DailyReadinessReading[],
+  windowStart: string,
+  windowEnd: string,
+): number {
+  const scored = history.filter(
+    (r) =>
+      r.readinessScore !== undefined && r.date >= windowStart && r.date <= windowEnd,
+  );
+  if (scored.length === 0) return 50;
+  const sum = scored.reduce((acc, r) => acc + (r.readinessScore as number), 0);
+  return sum / scored.length;
 }
 
 /**
@@ -86,9 +106,13 @@ export interface ComputePass3InputsInput {
  *   [upcomingWeekStartDate − 7d, upcomingWeekStartDate − 1d].
  * Workouts outside that window in `completedLastWeek` are silently ignored
  * (matches the field name; callers shouldn't pass them anyway).
+ *
+ * `readinessHistory` may contain readings outside the window too (the
+ * hard-rules engine needs a longer baseline) — only in-window scored
+ * readings contribute to `avgReadinessLast7d`.
  */
 export function computePass3Inputs(input: ComputePass3InputsInput): Pass3ComputedInputs {
-  const { upcomingWeekStartDate, completedLastWeek, readinessLast7d, seedDailyTss } = input;
+  const { upcomingWeekStartDate, completedLastWeek, readinessHistory, seedDailyTss } = input;
   const windowEnd = shiftIsoDate(upcomingWeekStartDate, -1);
   const windowStart = shiftIsoDate(upcomingWeekStartDate, -7);
 
@@ -115,6 +139,6 @@ export function computePass3Inputs(input: ComputePass3InputsInput): Pass3Compute
     currentCtl: last.ctl,
     currentAtl: last.atl,
     currentTsb: last.tsb,
-    avgReadinessLast7d: readinessLast7d,
+    avgReadinessLast7d: avgReadinessInWindow(readinessHistory, windowStart, windowEnd),
   };
 }

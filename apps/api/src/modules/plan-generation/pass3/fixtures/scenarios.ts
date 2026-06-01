@@ -1,4 +1,9 @@
-import type { AthleteProfile, WeeklyDetail, WorkoutCompleted } from '@eta/shared-types';
+import type {
+  AthleteProfile,
+  DailyReadinessReading,
+  WeeklyDetail,
+  WorkoutCompleted,
+} from '@eta/shared-types';
 import type { DailyTss } from '@eta/training-load';
 import type { HardRuleOutput, Pass3Input } from '../types.js';
 
@@ -158,6 +163,16 @@ function lwDate(n: number): string {
   return d.toISOString().slice(0, 10);
 }
 
+// 7-day stub readiness history covering the window the scenarios use
+// (2026-05-25 through 2026-05-31 inclusive, i.e. WEEK_START − 7d ... − 1d).
+function flatReadinessHistory(score: number): DailyReadinessReading[] {
+  return [0, 1, 2, 3, 4, 5, 6].map((n) => ({
+    date: lwDate(n),
+    readinessScore: score,
+    source: 'stub' as const,
+  }));
+}
+
 const NO_HARD_RULES: HardRuleOutput = { forcedAdjustments: [] };
 
 // ─── Scenario A: perfect week ────────────────────────────────────────────────
@@ -236,7 +251,7 @@ function perfectWeek(): Pass3Input {
   return {
     weeklyDraft: weeklyDraft(),
     completedLastWeek,
-    readinessLast7d: 72,
+    readinessHistory: flatReadinessHistory(72),
     hardRuleOutput: NO_HARD_RULES,
     athleteProfile: profile(),
   };
@@ -315,7 +330,7 @@ function missedLongRide(): Pass3Input {
   return {
     weeklyDraft: weeklyDraft(),
     completedLastWeek,
-    readinessLast7d: 48,
+    readinessHistory: flatReadinessHistory(48),
     hardRuleOutput: NO_HARD_RULES,
     athleteProfile: profile(),
   };
@@ -403,7 +418,7 @@ function lowRecovery(): Pass3Input {
   return {
     weeklyDraft: weeklyDraft(),
     completedLastWeek,
-    readinessLast7d: 30,
+    readinessHistory: flatReadinessHistory(30),
     hardRuleOutput: NO_HARD_RULES,
     athleteProfile: profile(),
   };
@@ -498,7 +513,7 @@ function fitnessLeap(): Pass3Input {
   return {
     weeklyDraft: weeklyDraft(),
     completedLastWeek,
-    readinessLast7d: 82,
+    readinessHistory: flatReadinessHistory(82),
     hardRuleOutput: NO_HARD_RULES,
     athleteProfile: profile(),
     seedDailyTss,

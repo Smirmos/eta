@@ -82,7 +82,7 @@ export class Pass3GenerationService {
     const computed = computePass3Inputs({
       upcomingWeekStartDate: input.weeklyDraft.weekStartDate,
       completedLastWeek: input.completedLastWeek,
-      readinessLast7d: input.readinessLast7d,
+      readinessHistory: input.readinessHistory,
       seedDailyTss: input.seedDailyTss,
     });
 

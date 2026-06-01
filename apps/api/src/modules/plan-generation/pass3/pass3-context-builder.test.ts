@@ -1,8 +1,22 @@
-import type { WorkoutCompleted } from '@eta/shared-types';
+import type { DailyReadinessReading, WorkoutCompleted } from '@eta/shared-types';
 import type { DailyTss } from '@eta/training-load';
 import { describe, expect, it } from 'vitest';
 import type { KnowledgeBase } from '../knowledge-base.loader.js';
 import { buildPass3KbSlice, computePass3Inputs } from './pass3-context-builder.js';
+
+function readinessHistory(score: number, dates: readonly string[]): DailyReadinessReading[] {
+  return dates.map((date) => ({ date, readinessScore: score, source: 'stub' as const }));
+}
+
+const WINDOW_DATES = [
+  '2026-05-04',
+  '2026-05-05',
+  '2026-05-06',
+  '2026-05-07',
+  '2026-05-08',
+  '2026-05-09',
+  '2026-05-10',
+] as const;
 
 function makeKb(overrides: Partial<KnowledgeBase> = {}): KnowledgeBase {
   const zones = `# Zones\n\nzones body.\n`;
@@ -80,7 +94,7 @@ describe('computePass3Inputs', () => {
     const out = computePass3Inputs({
       upcomingWeekStartDate: '2026-05-11',
       completedLastWeek: completed,
-      readinessLast7d: 70,
+      readinessHistory: readinessHistory(70, WINDOW_DATES),
     });
     expect(out.lastWeekTss).toBe(250);
   });
@@ -96,7 +110,7 @@ describe('computePass3Inputs', () => {
     const out = computePass3Inputs({
       upcomingWeekStartDate: '2026-05-11',
       completedLastWeek: completed,
-      readinessLast7d: 50,
+      readinessHistory: readinessHistory(50, WINDOW_DATES),
     });
     expect(out.lastWeekTss).toBe(80);
   });
@@ -109,18 +123,64 @@ describe('computePass3Inputs', () => {
     const out = computePass3Inputs({
       upcomingWeekStartDate: '2026-05-11',
       completedLastWeek: completed,
-      readinessLast7d: 50,
+      readinessHistory: readinessHistory(50, WINDOW_DATES),
     });
     expect(out.lastWeekTss).toBe(60);
   });
 
-  it('echoes readinessLast7d into avgReadinessLast7d', () => {
+  it('averages readinessScore across in-window readings into avgReadinessLast7d', () => {
+    const history: DailyReadinessReading[] = [
+      { date: '2026-05-04', readinessScore: 40, source: 'stub' },
+      { date: '2026-05-05', readinessScore: 50, source: 'stub' },
+      { date: '2026-05-06', readinessScore: 60, source: 'stub' },
+    ];
     const out = computePass3Inputs({
       upcomingWeekStartDate: '2026-05-11',
       completedLastWeek: [],
-      readinessLast7d: 42,
+      readinessHistory: history,
     });
-    expect(out.avgReadinessLast7d).toBe(42);
+    expect(out.avgReadinessLast7d).toBe(50);
+  });
+
+  it('falls back to neutral 50 when no in-window scored readings exist', () => {
+    const out = computePass3Inputs({
+      upcomingWeekStartDate: '2026-05-11',
+      completedLastWeek: [],
+      readinessHistory: [],
+    });
+    expect(out.avgReadinessLast7d).toBe(50);
+  });
+
+  it('excludes readings outside the 7-day window from the average', () => {
+    const history: DailyReadinessReading[] = [
+      // Before the window: ignored.
+      { date: '2026-05-02', readinessScore: 10, source: 'stub' },
+      // In-window readings: averaged.
+      { date: '2026-05-05', readinessScore: 70, source: 'stub' },
+      { date: '2026-05-07', readinessScore: 80, source: 'stub' },
+      // On the upcoming-week-start day: ignored (window is [start-7, start-1]).
+      { date: '2026-05-11', readinessScore: 99, source: 'stub' },
+    ];
+    const out = computePass3Inputs({
+      upcomingWeekStartDate: '2026-05-11',
+      completedLastWeek: [],
+      readinessHistory: history,
+    });
+    expect(out.avgReadinessLast7d).toBe(75);
+  });
+
+  it('skips readings without a readinessScore when averaging', () => {
+    const history: DailyReadinessReading[] = [
+      // Only HRV recorded — does not contribute to avgReadinessLast7d.
+      { date: '2026-05-05', hrvRmssdMs: 50, source: 'oura' },
+      { date: '2026-05-07', readinessScore: 60, source: 'oura' },
+    ];
+    const out = computePass3Inputs({
+      upcomingWeekStartDate: '2026-05-11',
+      completedLastWeek: [],
+      readinessHistory: history,
+    });
+    expect(out.avgReadinessLast7d).toBe(60);
   });
 
   it('produces positive CTL and ATL from a typical training week', () => {
@@ -134,7 +194,7 @@ describe('computePass3Inputs', () => {
     const out = computePass3Inputs({
       upcomingWeekStartDate: '2026-05-11',
       completedLastWeek: completed,
-      readinessLast7d: 70,
+      readinessHistory: readinessHistory(70, WINDOW_DATES),
     });
     expect(out.currentCtl).toBeGreaterThan(0);
     expect(out.currentAtl).toBeGreaterThan(0);
@@ -155,13 +215,13 @@ describe('computePass3Inputs', () => {
     const withSeed = computePass3Inputs({
       upcomingWeekStartDate: '2026-05-11',
       completedLastWeek: [workout('2026-05-04', 70)],
-      readinessLast7d: 50,
+      readinessHistory: readinessHistory(50, WINDOW_DATES),
       seedDailyTss: seedHistory,
     });
     const withoutSeed = computePass3Inputs({
       upcomingWeekStartDate: '2026-05-11',
       completedLastWeek: [workout('2026-05-04', 70)],
-      readinessLast7d: 50,
+      readinessHistory: readinessHistory(50, WINDOW_DATES),
     });
     // Seeded run should have materially higher CTL than un-seeded (starts near 0).
     expect(withSeed.currentCtl).toBeGreaterThan(withoutSeed.currentCtl + 10);
@@ -171,7 +231,7 @@ describe('computePass3Inputs', () => {
     const out = computePass3Inputs({
       upcomingWeekStartDate: '2026-05-11',
       completedLastWeek: [],
-      readinessLast7d: 50,
+      readinessHistory: readinessHistory(50, WINDOW_DATES),
     });
     expect(out.lastWeekTss).toBe(0);
     expect(out.currentCtl).toBe(0);
@@ -184,7 +244,7 @@ describe('computePass3Inputs', () => {
       computePass3Inputs({
         upcomingWeekStartDate: 'not-a-date',
         completedLastWeek: [],
-        readinessLast7d: 50,
+        readinessHistory: [],
       }),
     ).toThrow();
   });

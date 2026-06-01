@@ -1,6 +1,7 @@
 import type {
   AdaptationSuggestion,
   AthleteProfile,
+  DailyReadinessReading,
   WeeklyDetail,
   WorkoutCode,
   WorkoutCompleted,
@@ -56,10 +57,11 @@ export interface Pass3Input {
   completedLastWeek: WorkoutCompleted[];
 
   /**
-   * 0–100 rollup of daily readiness/sleep/HRV signal across the last 7 days.
-   * Stubbed at 50 in v1 — replaced when an HRV / wearable source lands.
+   * Per-day readiness/HRV readings covering today + the prior days needed for
+   * Pass 3's 7-day average and the hard-rules HRV rolling-baseline window.
+   * Must contain at least one reading dated `< weeklyDraft.weekStartDate`.
    */
-  readinessLast7d: number;
+  readinessHistory: DailyReadinessReading[];
 
   /** Output of the deterministic hard-rules pre-pass. Stubbed (empty) in v1. */
   hardRuleOutput: HardRuleOutput;
@@ -83,7 +85,7 @@ export interface Pass3ComputedInputs {
   currentAtl: number;
   /** Training stress balance = CTL_yesterday − ATL_yesterday going into upcoming week. */
   currentTsb: number;
-  /** Echo of input.readinessLast7d. */
+  /** Mean of in-window `readinessHistory[].readinessScore`; 50 if none available. */
   avgReadinessLast7d: number;
 }
 
