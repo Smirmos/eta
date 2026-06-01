@@ -514,13 +514,80 @@ function fitnessLeap(): Pass3Input {
   };
 }
 
-// ─── Registry ────────────────────────────────────────────────────────────────
+// ─── Hard-rules scenarios (ETA-21) ───────────────────────────────────────────
+// These scenarios share perfect-week's completed-last-week (clean execution
+// last week) and isolate the variable that drives the deterministic hard-rules
+// engine: today's readiness/HRV data. The upcoming-week readings here are
+// synthetic — in production (A2 daily-replay) the engine fires each morning
+// against that day's actuals; the synthetic projection lets us test the rule
+// math without a scheduler.
+
+const TUE = '2026-06-02';
+const WED = '2026-06-03';
+
+// readiness rule scenarios use a flat 7-day prior baseline at 70 (green) so
+// that pre-window rules are inert; only the upcoming-week reading varies.
+function readinessScenarioHistory(
+  ouraOnDate: Array<{ date: string; readinessScore: number }>,
+): DailyReadinessReading[] {
+  const baseline = flatReadinessHistory(70);
+  const overrides: DailyReadinessReading[] = ouraOnDate.map((o) => ({
+    date: o.date,
+    readinessScore: o.readinessScore,
+    source: 'oura',
+  }));
+  return [...baseline, ...overrides];
+}
+
+function ouraLowReadiness(): Pass3Input {
+  // Tue (Bike T2-test day) has Oura readiness 45 (<50 RED) → force_rest.
+  const base = perfectWeek();
+  return { ...base, readinessHistory: readinessScenarioHistory([{ date: TUE, readinessScore: 45 }]) };
+}
+
+function ouraYellowReadiness(): Pass3Input {
+  // Tue has Oura readiness 60 (50-64 YELLOW) → note_only.
+  const base = perfectWeek();
+  return { ...base, readinessHistory: readinessScenarioHistory([{ date: TUE, readinessScore: 60 }]) };
+}
+
+function ouraGreenReadiness(): Pass3Input {
+  // Tue has Oura readiness 75 (65-79 GREEN) → note_only.
+  const base = perfectWeek();
+  return { ...base, readinessHistory: readinessScenarioHistory([{ date: TUE, readinessScore: 75 }]) };
+}
+
+function hrvSuppressed3d(): Pass3Input {
+  // Build 10 days of HRV history ending on Wed: 7 baseline days at 60ms,
+  // then 3 suppressed days at 54ms (10 % drop) on Mon/Tue/Wed.
+  // hrv.forced_rest_chronic should fire on Wed (bike ME day).
+  const BASELINE = 60;
+  const SUPPRESSED = BASELINE * 0.9;
+  const history: DailyReadinessReading[] = [];
+  const start = new Date('2026-05-25T00:00:00Z'); // 9 days before WED
+  for (let i = 0; i < 7; i++) {
+    const d = new Date(start.getTime() + i * 86_400_000).toISOString().slice(0, 10);
+    history.push({ date: d, hrvRmssdMs: BASELINE, source: 'oura' });
+  }
+  for (let i = 7; i < 10; i++) {
+    const d = new Date(start.getTime() + i * 86_400_000).toISOString().slice(0, 10);
+    history.push({ date: d, hrvRmssdMs: SUPPRESSED, source: 'oura' });
+  }
+  const base = perfectWeek();
+  return { ...base, readinessHistory: history };
+}
+
+// ─── Registries ──────────────────────────────────────────────────────────────
 
 export const PASS3_SCENARIO_NAMES = [
   'perfect-week',
   'missed-long-ride',
   'low-recovery',
   'fitness-leap',
+  'oura-50',
+  'oura-60',
+  'oura-75',
+  'hrv-suppressed-3d',
 ] as const;
 
 export type Pass3ScenarioName = (typeof PASS3_SCENARIO_NAMES)[number];
@@ -530,4 +597,8 @@ export const pass3Scenarios: Record<Pass3ScenarioName, () => Pass3Input> = {
   'missed-long-ride': missedLongRide,
   'low-recovery': lowRecovery,
   'fitness-leap': fitnessLeap,
+  'oura-50': ouraLowReadiness,
+  'oura-60': ouraYellowReadiness,
+  'oura-75': ouraGreenReadiness,
+  'hrv-suppressed-3d': hrvSuppressed3d,
 };
