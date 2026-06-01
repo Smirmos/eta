@@ -400,4 +400,51 @@ describe('Pass3GenerationService', () => {
     expect(result.output.hardRuleOutput.forcedAdjustments[0]!.action).toBe('force_rest');
     expect(result.output.hardRulesApplied.some((r) => r.ruleId === 'readiness.red')).toBe(true);
   });
+
+  it('runs cleanly in Strava-only mode (no readiness data at all)', async () => {
+    // ETA-25 Strava-only mode: no Oura/Luna readiness signal. Hard-rules
+    // engine must skip readiness/HRV bands (no firings), Pass 3 must still
+    // call the LLM with neutral 50 as avgReadinessLast7d (the documented
+    // stub fallback), and Pass3Output must report zero forced adjustments.
+    const createSpy = vi.fn(
+      async () =>
+        ({
+          id: 'msg',
+          type: 'message',
+          role: 'assistant',
+          model: 'claude-opus-4-7',
+          content: [
+            { type: 'text', text: JSON.stringify(validSuggestion()) } as Anthropic.Beta.Messages.BetaTextBlock,
+          ],
+          stop_reason: 'end_turn',
+          stop_sequence: null,
+          usage: {
+            input_tokens: 1,
+            output_tokens: 1,
+            cache_creation_input_tokens: 0,
+            cache_read_input_tokens: 0,
+          },
+        }) as unknown as Anthropic.Beta.Messages.BetaMessage,
+    );
+    const client = { beta: { messages: { create: createSpy } } } as unknown as AnthropicLike;
+    const service = new Pass3GenerationService(makeConfig(), makeKbLoader(), () => client);
+
+    const result = await service.generateAdaptation({
+      weeklyDraft: sampleDraft(),
+      completedLastWeek: [],
+      readinessHistory: [], // No wearable connected.
+      athleteProfile: sampleProfile(),
+    });
+
+    expect(result.output.hardRuleOutput.forcedAdjustments).toHaveLength(0);
+    expect(result.output.hardRulesApplied).toHaveLength(0);
+    expect(result.output.computed.avgReadinessLast7d).toBe(50);
+    expect(createSpy).toHaveBeenCalledTimes(1);
+    const calls = createSpy.mock.calls as unknown as Array<
+      [{ messages: Array<{ content: Array<{ text: string }> }> }]
+    >;
+    const userDynamic = calls[0]![0]!.messages[0]!.content[1]!.text;
+    expect(userDynamic).toContain('no hard rules fired this week');
+    expect(userDynamic).toContain('"avgReadinessLast7d": 50');
+  });
 });
