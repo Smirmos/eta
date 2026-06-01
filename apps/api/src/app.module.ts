@@ -1,8 +1,22 @@
-import { Module } from '@nestjs/common';
+// Load .env at module-eval time so the optional-import gate below can read
+// STRAVA_ENABLED from .env (ConfigModule loads .env too, but later — after the
+// @Module decorator has been evaluated).
+import { config as loadEnv } from 'dotenv';
+loadEnv({ path: '../../.env' });
+loadEnv({ path: '.env' });
+
+import { Module, type DynamicModule } from '@nestjs/common';
 import { ConfigModule } from '@nestjs/config';
 import { validateEnv } from './config/env.schema.js';
 import { HealthController } from './common/health.controller.js';
 import { PlanGenerationModule } from './modules/plan-generation/plan-generation.module.js';
+import { StravaModule } from './modules/integrations/strava/strava.module.js';
+
+function optionalStravaModule(): DynamicModule[] {
+  const enabled =
+    process.env.STRAVA_ENABLED === 'true' || process.env.STRAVA_ENABLED === '1';
+  return enabled ? [{ module: StravaModule, global: false }] : [];
+}
 
 @Module({
   imports: [
@@ -14,6 +28,7 @@ import { PlanGenerationModule } from './modules/plan-generation/plan-generation.
       envFilePath: ['../../.env', '.env'],
     }),
     PlanGenerationModule,
+    ...optionalStravaModule(),
   ],
   controllers: [HealthController],
 })

@@ -1,0 +1,13 @@
+{
+  "id": 9876543210,
+  "type": "Run",
+  "start_date_local": "2026-05-31T07:00:00Z",
+  "moving_time": 5400,
+  "elapsed_time": 5500,
+  "distance": 15000,
+  "name": "Long aerobic run",
+  "description": null,
+  "average_heartrate": 145,
+  "has_heartrate": true,
+  "perceived_exertion": 5
+}

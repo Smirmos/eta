@@ -1,0 +1,15 @@
+{
+  "id": 1234567890,
+  "type": "Ride",
+  "start_date_local": "2026-05-30T07:15:00Z",
+  "moving_time": 3600,
+  "elapsed_time": 3720,
+  "distance": 32000,
+  "name": "Threshold intervals",
+  "description": "2x15min Z4, felt good.",
+  "weighted_average_watts": 245,
+  "average_watts": 220,
+  "average_heartrate": 158,
+  "max_heartrate": 178,
+  "has_heartrate": true
+}
