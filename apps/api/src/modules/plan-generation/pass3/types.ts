@@ -18,11 +18,13 @@ import type { DailyTss } from '@eta/training-load';
 export type HardRuleAction = 'force_rest' | 'force_replace';
 
 export interface HardRuleAdjustment {
-  /** ISO date inside the upcoming week. */
+  /** ISO date the rule fired against. */
   date: string;
   action: HardRuleAction;
   /** Required when action='force_replace'. */
   newWorkoutCode?: WorkoutCode;
+  /** Optional with action='force_replace' — caps duration (e.g., HRV downgrade to 70 %). */
+  newDurationSeconds?: number;
   /** Short human-readable explanation. Surfaced to the LLM and the renderer. */
   reason: string;
 }

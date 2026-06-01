@@ -275,12 +275,14 @@ export function buildPass3Prompt(input: BuildPass3PromptInput): BuildPass3Prompt
     hardRuleOutput.forcedAdjustments.length === 0
       ? '_(no hard rules fired this week)_'
       : hardRuleOutput.forcedAdjustments
-          .map(
-            (h) =>
-              `- ${h.date}: ${h.action}${
-                h.newWorkoutCode !== undefined ? ` → ${h.newWorkoutCode}` : ''
-              } — ${h.reason}`,
-          )
+          .map((h) => {
+            const code = h.newWorkoutCode !== undefined ? ` → ${h.newWorkoutCode}` : '';
+            const dur =
+              h.newDurationSeconds !== undefined
+                ? ` @ ${Math.round(h.newDurationSeconds / 60)}min`
+                : '';
+            return `- ${h.date}: ${h.action}${code}${dur} — ${h.reason}`;
+          })
           .join('\n');
 
   const profileJson = JSON.stringify(athleteProfile, null, 2);
