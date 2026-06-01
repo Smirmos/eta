@@ -6,6 +6,14 @@ import type { WorkoutCode } from './workout-codes.js';
 
 export type CompletionStatus = 'completed' | 'partial' | 'skipped';
 
+/**
+ * 'computed' — actualTss came from training-load math against HR or power.
+ * 'pending_inference' — TSS not yet computable (e.g., Strava activity ingested
+ *   before AthleteProfile thresholds existed). Pass 3 treats these rows as
+ *   present-but-untrusted; backfill recomputes once the profile lands.
+ */
+export type TssStatus = 'computed' | 'pending_inference';
+
 export interface WorkoutCompleted {
   // ─── Identity ──────────────────────────────────────────────────────────
   /** ISO date "YYYY-MM-DD" the workout was scheduled for. */
@@ -14,6 +22,8 @@ export interface WorkoutCompleted {
 
   // ─── Subjective + outcome (stub fields, preserved) ─────────────────────
   actualTss?: number;
+  /** Provenance of `actualTss`. Undefined ↔ actualTss undefined. */
+  tssStatus?: TssStatus;
   /** Borg-style RPE, 1–10. */
   perceivedExertion?: number;
   notes?: string;

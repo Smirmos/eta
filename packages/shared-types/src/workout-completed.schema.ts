@@ -1,7 +1,7 @@
 import { z } from 'zod';
 import { disciplineSchema } from './athlete-profile.schema.js';
 import { WORKOUT_CODES, type WorkoutCode } from './workout-codes.js';
-import type { CompletionStatus, WorkoutCompleted } from './workout-completed.js';
+import type { CompletionStatus, TssStatus, WorkoutCompleted } from './workout-completed.js';
 
 const ISO_DATE_RE = /^\d{4}-\d{2}-\d{2}$/;
 const isoDateSchema = z.string().regex(ISO_DATE_RE, 'Must be ISO date "YYYY-MM-DD"');
@@ -14,11 +14,14 @@ export const completionStatusSchema = z.enum([
   'skipped',
 ]) satisfies z.ZodType<CompletionStatus>;
 
+export const tssStatusSchema = z.enum(['computed', 'pending_inference']) satisfies z.ZodType<TssStatus>;
+
 export const workoutCompletedSchema = z.object({
   date: isoDateSchema,
   workoutCode: workoutCodeSchema,
 
   actualTss: z.number().nonnegative().optional(),
+  tssStatus: tssStatusSchema.optional(),
   perceivedExertion: z.number().min(1).max(10).optional(),
   notes: z.string().optional(),
 

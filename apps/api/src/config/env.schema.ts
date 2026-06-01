@@ -19,6 +19,44 @@ export const envSchema = z.object({
   HRV_STREAK_DAYS: z.coerce.number().int().min(1).default(3),
   HRV_ROLLING_WINDOW_DAYS: z.coerce.number().int().min(1).default(7),
   HRV_DOWNGRADE_DURATION_RATIO: z.coerce.number().gt(0).lte(1).default(0.7),
+
+  // ETA-25 Strava integration. STRAVA_ENABLED gates the module: when false the
+  // controller routes are not registered and the *_API/*_SECRET vars become
+  // optional, so local dev without credentials still boots.
+  STRAVA_ENABLED: z
+    .string()
+    .optional()
+    .transform((v) => v === 'true' || v === '1'),
+  STRAVA_CLIENT_ID: z.string().optional(),
+  STRAVA_CLIENT_SECRET: z.string().optional(),
+  STRAVA_REDIRECT_URI: z.string().url().optional(),
+  STRAVA_WEBHOOK_VERIFY_TOKEN: z.string().optional(),
+  STRAVA_WEBHOOK_CALLBACK_URL: z.string().url().optional(),
+  STRAVA_API_BASE: z.string().url().default('https://www.strava.com/api/v3'),
+  STRAVA_OAUTH_BASE: z.string().url().default('https://www.strava.com'),
+
+  // v1 has no users table — the Strava-connecting athlete is keyed by this
+  // hardcoded uuid. Replace with a real users table once auth lands.
+  DEV_USER_ID: z.string().uuid().default('00000000-0000-0000-0000-000000000001'),
+})
+.superRefine((env, ctx) => {
+  if (!env.STRAVA_ENABLED) return;
+  const required = [
+    'STRAVA_CLIENT_ID',
+    'STRAVA_CLIENT_SECRET',
+    'STRAVA_REDIRECT_URI',
+    'STRAVA_WEBHOOK_VERIFY_TOKEN',
+    'STRAVA_WEBHOOK_CALLBACK_URL',
+  ] as const;
+  for (const key of required) {
+    if (!env[key]) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: [key],
+        message: `${key} is required when STRAVA_ENABLED=true`,
+      });
+    }
+  }
 });
 
 export type Env = z.infer<typeof envSchema>;

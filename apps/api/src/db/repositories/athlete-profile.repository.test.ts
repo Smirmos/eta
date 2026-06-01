@@ -5,7 +5,7 @@ import { migrate } from 'drizzle-orm/postgres-js/migrator';
 import postgres from 'postgres';
 import { PostgreSqlContainer, type StartedPostgreSqlContainer } from '@testcontainers/postgresql';
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from 'vitest';
-import * as schema from '../schema/athlete-profile.js';
+import * as schema from '../schema/index.js';
 import { AthleteProfileRepository } from './athlete-profile.repository.js';
 
 type Db = PostgresJsDatabase<typeof schema>;

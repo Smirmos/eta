@@ -15,7 +15,11 @@ export default defineConfig({
   // Point at concrete schema files (NOT the index.ts re-export — drizzle-kit's
   // CJS loader can't follow the explicit `.js` extensions our ESM TS source uses).
   // When new schema files land, add their paths to this array.
-  schema: ['./src/db/schema/athlete-profile.ts'],
+  schema: [
+    './src/db/schema/athlete-profile.ts',
+    './src/db/schema/oauth-credentials.ts',
+    './src/db/schema/workouts-completed.ts',
+  ],
   out: './drizzle',
   dialect: 'postgresql',
   dbCredentials: { url },
