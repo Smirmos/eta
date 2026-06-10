@@ -19,7 +19,8 @@
     "generate:test-plan": "node --import @swc-node/register/esm-register scripts/generate-test-plan.ts",
     "generate:test-week": "node --import @swc-node/register/esm-register scripts/generate-test-week.ts",
     "generate:test-adaptation": "node --import @swc-node/register/esm-register scripts/generate-test-adaptation.ts",
-    "render:plan": "node --import @swc-node/register/esm-register scripts/render-plan.ts"
+    "render:plan": "node --import @swc-node/register/esm-register scripts/render-plan.ts",
+    "strava:backfill": "node --import @swc-node/register/esm-register scripts/strava-backfill.ts"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.32.0",

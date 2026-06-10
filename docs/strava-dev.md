@@ -73,7 +73,49 @@ Then:
    an activity. Expect to see `Ingested Strava activity <id>` in the API logs
    within seconds. Re-check the DB.
 
-## Caveats
+## Caveats (verified in 2026-06-10 smoke test)
+
+- **ngrok free-tier abuse warning blocks browser-initiated OAuth.**
+  Strava redirects the browser to your ngrok URL with `?code=…&state=…`.
+  On the first browser visit to that ngrok host, ngrok serves an
+  interstitial ("You are about to visit…") and does NOT proxy to the
+  API. The Strava code remains valid for ~10 min, so two ways out:
+  - Pre-warm: visit any URL on the ngrok host once (e.g.
+    `https://<host>/health`), click "Visit Site" on the warning, then
+    open `/integrations/strava/authorize` and consent. The interstitial
+    is suppressed for the rest of the browser session.
+  - Bypass via curl: copy the full `…/callback?state=…&code=…` URL from
+    the address bar after consent, then
+    `curl -H "ngrok-skip-browser-warning: 1" '<that-url>'`. The header
+    bypasses the interstitial for non-browser clients. The API
+    completes the exchange the same way it would from the browser.
+- **PORT in `.env` may be ignored** if something already set it in your
+  shell environment (`echo $PORT`). dotenv won't overwrite existing
+  `process.env` values. Either `unset PORT` first or run the API with
+  `PORT=3001 pnpm dev` on the command line.
+- **Strava's "Authorization Callback Domain" field** is on
+  `/settings/api`, but only visible **after clicking Edit**. The
+  read-only Details view doesn't show it.
+- **Mobile Strava app rejects manual activities with no GPS movement.**
+  Use the **web upload** at https://www.strava.com/upload/manual for
+  synthetic test activities — it accepts manual entries without any GPS
+  data. The webhook fires for these the same as for real activities.
+- **`pnpm strava:backfill` script hangs at exit** even after
+  `await app.close()`. Functional behavior is fine (backfill completes
+  and persists rows), but the process needs SIGTERM to exit. Add a
+  `process.exit(0)` after `app.close()` as a follow-up.
+
+## Manual backfill
+
+```sh
+pnpm strava:backfill           # uses DEV_USER_ID
+pnpm strava:backfill -- --user=<uuid>
+```
+
+Idempotent — re-runs upsert on `(source, external_id)` so re-running
+does not duplicate rows.
+
+## Operational caveats
 
 - **ngrok free tier rotates URLs** every restart. After a new ngrok URL,
   update `.env`, restart `pnpm dev`, delete the prior Strava subscription
