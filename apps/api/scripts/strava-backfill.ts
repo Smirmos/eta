@@ -23,7 +23,9 @@ async function main(): Promise<void> {
   await app.close();
 }
 
-void main().catch((err) => {
-  console.error(err);
-  process.exit(1);
-});
+void main()
+  .then(() => process.exit(0))
+  .catch((err) => {
+    console.error(err);
+    process.exit(1);
+  });

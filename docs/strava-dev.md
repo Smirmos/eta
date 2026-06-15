@@ -100,11 +100,6 @@ Then:
   Use the **web upload** at https://www.strava.com/upload/manual for
   synthetic test activities — it accepts manual entries without any GPS
   data. The webhook fires for these the same as for real activities.
-- **`pnpm strava:backfill` script hangs at exit** even after
-  `await app.close()`. Functional behavior is fine (backfill completes
-  and persists rows), but the process needs SIGTERM to exit. Add a
-  `process.exit(0)` after `app.close()` as a follow-up.
-
 ## Manual backfill
 
 ```sh
