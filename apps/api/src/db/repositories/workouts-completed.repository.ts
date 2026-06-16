@@ -69,4 +69,17 @@ export class WorkoutsCompletedRepository {
         ),
       );
   }
+
+  async findPendingByUserAndSource(userId: string, source: string): Promise<WorkoutsCompletedRow[]> {
+    return this.db
+      .select()
+      .from(workoutsCompleted)
+      .where(
+        and(
+          eq(workoutsCompleted.userId, userId),
+          eq(workoutsCompleted.source, source),
+          eq(workoutsCompleted.tssStatus, 'pending_inference'),
+        ),
+      );
+  }
 }
