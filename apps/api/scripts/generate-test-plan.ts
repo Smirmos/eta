@@ -1,35 +1,40 @@
 /* eslint-disable no-console */
-import { mkdirSync, readFileSync, writeFileSync } from 'node:fs';
+import { mkdirSync, writeFileSync } from 'node:fs';
 import { dirname, join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { NestFactory } from '@nestjs/core';
+import { ConfigService } from '@nestjs/config';
 import { AppModule } from '../src/app.module.js';
+import type { Env } from '../src/config/env.schema.js';
+import { AthleteProfileRepository } from '../src/db/repositories/athlete-profile.repository.js';
 import {
   PlanGenerationError,
   PlanGenerationService,
 } from '../src/modules/plan-generation/plan-generation.service.js';
+import { loadProfile } from './lib/load-profile.js';
 
 const HERE = dirname(fileURLToPath(import.meta.url));
-const DEFAULT_PROFILE_PATH = resolve(HERE, 'test-profile.json');
 const OUTPUT_DIR = resolve(HERE, 'output');
 
 function timestampForFilename(): string {
   return new Date().toISOString().replace(/[:.]/g, '-');
 }
 
-// Optional CLI arg: --profile=<path>. Defaults to scripts/test-profile.json.
-// Synthetic 5-day fixture lives at scripts/test-profile-5day.json — see its
-// README for context.
-function resolveProfilePath(): string {
+// Optional CLI arg: --profile=<path>. Defaults to DB-loaded profile for
+// DEV_USER_ID. Synthetic 5-day fixture lives at scripts/test-profile-5day.json
+// — see its README for context.
+function resolveProfilePath(): string | undefined {
   const arg = process.argv.find((a) => a.startsWith('--profile='));
-  if (!arg) return DEFAULT_PROFILE_PATH;
+  if (!arg) return undefined;
   const value = arg.split('=')[1] ?? '';
   return resolve(process.cwd(), value);
 }
 
 // Profile ID is derived from the profile filename so that fixtures generated
 // against different profiles are easy to distinguish in scripts/output/.
-function profileIdFor(profilePath: string): string {
+// When loaded from DB, falls back to the canonical Tallinn ID.
+function profileIdFor(profilePath: string | undefined): string {
+  if (!profilePath) return 'test-arkadiy-2026-08-22-tallinn';
   const base = profilePath
     .split('/')
     .pop()!
@@ -41,13 +46,19 @@ function profileIdFor(profilePath: string): string {
 async function main(): Promise<void> {
   const PROFILE_PATH = resolveProfilePath();
   const PROFILE_ID = profileIdFor(PROFILE_PATH);
-  console.log(`Profile: ${PROFILE_PATH}`);
+  console.log(`Profile: ${PROFILE_PATH ?? '(DB lookup for DEV_USER_ID)'}`);
   console.log(`Profile ID: ${PROFILE_ID}`);
-  const profileText = readFileSync(PROFILE_PATH, 'utf8');
-  const rawProfile = JSON.parse(profileText) as unknown;
 
   console.log(`Bootstrapping NestJS context...`);
   const app = await NestFactory.createApplicationContext(AppModule, { bufferLogs: false });
+  const config = app.get<ConfigService<Env, true>>(ConfigService);
+  const repo = app.get(AthleteProfileRepository);
+  const userId = config.get('DEV_USER_ID', { infer: true });
+
+  const profile = await loadProfile({
+    fromPath: PROFILE_PATH,
+    fromDb: PROFILE_PATH ? undefined : { userId, repo },
+  });
   const service = app.get(PlanGenerationService);
 
   mkdirSync(OUTPUT_DIR, { recursive: true });
@@ -55,12 +66,13 @@ async function main(): Promise<void> {
   const planPath = join(OUTPUT_DIR, `test-plan-${ts}.json`);
   const rawPath = join(OUTPUT_DIR, `test-plan-${ts}-raw.txt`);
 
+  const profileText = JSON.stringify(profile);
   const inputCharCount = profileText.length;
-  console.log(`Profile loaded (${inputCharCount} chars from JSON file). Calling Anthropic API...`);
+  console.log(`Profile loaded (${inputCharCount} chars serialized). Calling Anthropic API...`);
 
   let exitCode = 0;
   try {
-    const result = await service.generateMacroPlan(rawProfile, PROFILE_ID);
+    const result = await service.generateMacroPlan(profile, PROFILE_ID);
     writeFileSync(rawPath, result.rawResponse);
     writeFileSync(planPath, JSON.stringify(result.plan, null, 2));
     console.log(`Validation: PASS, weeks: ${result.plan.totalWeeks}`);
@@ -99,4 +111,9 @@ async function main(): Promise<void> {
   process.exit(exitCode);
 }
 
-void main();
+void main()
+  .then(() => process.exit(0))
+  .catch((err) => {
+    console.error(err);
+    process.exit(1);
+  });

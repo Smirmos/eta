@@ -3,7 +3,10 @@ import { mkdirSync, writeFileSync } from 'node:fs';
 import { dirname, join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { NestFactory } from '@nestjs/core';
+import { ConfigService } from '@nestjs/config';
 import { AppModule } from '../src/app.module.js';
+import type { Env } from '../src/config/env.schema.js';
+import { AthleteProfileRepository } from '../src/db/repositories/athlete-profile.repository.js';
 import {
   PASS3_SCENARIO_NAMES,
   pass3Scenarios,
@@ -13,6 +16,7 @@ import {
   Pass3GenerationError,
   Pass3GenerationService,
 } from '../src/modules/plan-generation/pass3/pass3.service.js';
+import { loadProfile } from './lib/load-profile.js';
 
 const HERE = dirname(fileURLToPath(import.meta.url));
 const OUTPUT_DIR = resolve(HERE, 'output');
@@ -35,21 +39,36 @@ function parseScenario(): Pass3ScenarioName {
 
 async function main(): Promise<void> {
   const scenario = parseScenario();
-  const input = pass3Scenarios[scenario]();
+  const scenarioInput = pass3Scenarios[scenario]();
+
+  // --profile=<path> overrides; default is DB lookup for DEV_USER_ID. The
+  // loaded profile overrides the scenario's hardcoded athleteProfile so this
+  // script honors the same profile source as the other generate CLIs.
+  const profileArg = process.argv.find((a) => a.startsWith('--profile='));
+  const profilePath = profileArg?.split('=')[1];
 
   console.log(`Scenario: ${scenario}`);
   console.log(
-    `Upcoming week: ${input.weeklyDraft.weekStartDate} (${input.weeklyDraft.phase}, ` +
-      `${input.weeklyDraft.workouts.length} workouts)`,
+    `Upcoming week: ${scenarioInput.weeklyDraft.weekStartDate} (${scenarioInput.weeklyDraft.phase}, ` +
+      `${scenarioInput.weeklyDraft.workouts.length} workouts)`,
   );
   console.log(
-    `Inputs: completedLastWeek=${input.completedLastWeek.length} entries, ` +
-      `readinessHistory=${input.readinessHistory.length} day(s), ` +
-      `seed=${input.seedDailyTss?.length ?? 0} days`,
+    `Inputs: completedLastWeek=${scenarioInput.completedLastWeek.length} entries, ` +
+      `readinessHistory=${scenarioInput.readinessHistory.length} day(s), ` +
+      `seed=${scenarioInput.seedDailyTss?.length ?? 0} days`,
   );
 
   console.log('Bootstrapping NestJS context...');
   const app = await NestFactory.createApplicationContext(AppModule, { bufferLogs: false });
+  const config = app.get<ConfigService<Env, true>>(ConfigService);
+  const repo = app.get(AthleteProfileRepository);
+  const userId = config.get('DEV_USER_ID', { infer: true });
+
+  const athleteProfile = await loadProfile({
+    fromPath: profilePath,
+    fromDb: profilePath ? undefined : { userId, repo },
+  });
+  const input = { ...scenarioInput, athleteProfile };
   const service = app.get(Pass3GenerationService);
 
   mkdirSync(OUTPUT_DIR, { recursive: true });
@@ -137,4 +156,9 @@ async function main(): Promise<void> {
   process.exit(exitCode);
 }
 
-void main();
+void main()
+  .then(() => process.exit(0))
+  .catch((err) => {
+    console.error(err);
+    process.exit(1);
+  });

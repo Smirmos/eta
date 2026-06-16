@@ -15,6 +15,8 @@
 import { readFileSync, readdirSync, statSync, writeFileSync } from 'node:fs';
 import { dirname, join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { NestFactory } from '@nestjs/core';
+import { ConfigService } from '@nestjs/config';
 import type {
   AthleteProfile,
   IntensityZone,
@@ -24,10 +26,13 @@ import type {
   WeeklyDetail,
   WorkoutSegment,
 } from '@eta/shared-types';
+import { AppModule } from '../src/app.module.js';
+import type { Env } from '../src/config/env.schema.js';
+import { AthleteProfileRepository } from '../src/db/repositories/athlete-profile.repository.js';
+import { loadProfile } from './lib/load-profile.js';
 
 const HERE = dirname(fileURLToPath(import.meta.url));
 const OUTPUT_DIR = resolve(HERE, 'output');
-const PROFILE_PATH = resolve(HERE, 'test-profile.json');
 const REPO_ROOT = resolve(HERE, '..', '..', '..');
 const KB_WORKOUTS = resolve(REPO_ROOT, 'knowledge-base', '03-workouts.md');
 
@@ -1280,11 +1285,25 @@ const JS_RUNTIME = `
 
 // ─── Main ────────────────────────────────────────────────────────────────────
 
-function main(): void {
+async function main(): Promise<void> {
   const { path: artifactPath, timestamp, kind } = locateLatestArtifact();
   console.log(`Reading ${kind} artifact: ${artifactPath}`);
   const rawJson = JSON.parse(readFileSync(artifactPath, 'utf8'));
-  const profile = JSON.parse(readFileSync(PROFILE_PATH, 'utf8')) as AthleteProfile;
+
+  // --profile=<path> overrides; default is DB lookup for DEV_USER_ID.
+  const profileArg = process.argv.find((a) => a.startsWith('--profile='));
+  const profilePath = profileArg?.split('=')[1];
+
+  const app = await NestFactory.createApplicationContext(AppModule, { bufferLogs: false });
+  const config = app.get<ConfigService<Env, true>>(ConfigService);
+  const repo = app.get(AthleteProfileRepository);
+  const userId = config.get('DEV_USER_ID', { infer: true });
+
+  const profile: AthleteProfile = await loadProfile({
+    fromPath: profilePath,
+    fromDb: profilePath ? undefined : { userId, repo },
+  });
+
   const workouts = loadWorkouts();
   console.log(`Loaded ${workouts.size} workouts (with details parsed)`);
 
@@ -1305,6 +1324,13 @@ function main(): void {
   writeFileSync(outPath, html);
   console.log(`Wrote: ${outPath}`);
   console.log(`Size: ${(html.length / 1024).toFixed(1)} KB`);
+
+  await app.close();
 }
 
-main();
+void main()
+  .then(() => process.exit(0))
+  .catch((err) => {
+    console.error(err);
+    process.exit(1);
+  });

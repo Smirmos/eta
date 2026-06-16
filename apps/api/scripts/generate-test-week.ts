@@ -3,22 +3,23 @@ import { mkdirSync, readFileSync, readdirSync, statSync, writeFileSync } from 'n
 import { dirname, join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { NestFactory } from '@nestjs/core';
+import { ConfigService } from '@nestjs/config';
 import {
-  athleteProfileInputSchema,
   macroPlanSchema,
-  type AthleteProfile,
   type MacroPlan,
   type WorkoutCompleted,
 } from '@eta/shared-types';
 import { AppModule } from '../src/app.module.js';
+import type { Env } from '../src/config/env.schema.js';
+import { AthleteProfileRepository } from '../src/db/repositories/athlete-profile.repository.js';
 import {
   Pass2GenerationError,
   Pass2GenerationService,
 } from '../src/modules/plan-generation/pass2/pass2.service.js';
+import { loadProfile } from './lib/load-profile.js';
 
 const HERE = dirname(fileURLToPath(import.meta.url));
 const OUTPUT_DIR = resolve(HERE, 'output');
-const PROFILE_PATH = resolve(HERE, 'test-profile.json');
 
 function timestampForFilename(): string {
   return new Date().toISOString().replace(/[:.]/g, '-');
@@ -56,13 +57,9 @@ async function main(): Promise<void> {
   }
   const macroPlan: MacroPlan = macroParsed.data;
 
-  const profileRaw = JSON.parse(readFileSync(PROFILE_PATH, 'utf8')) as unknown;
-  const profileParsed = athleteProfileInputSchema.safeParse(profileRaw);
-  if (!profileParsed.success) {
-    console.error('test-profile.json failed schema validation.');
-    process.exit(1);
-  }
-  const athleteProfile: AthleteProfile = profileParsed.data;
+  // --profile=<path> overrides; default is DB lookup for DEV_USER_ID.
+  const profileArg = process.argv.find((a) => a.startsWith('--profile='));
+  const profilePath = profileArg?.split('=')[1];
 
   // v1 single-user pre-Strava-sync: no real recent workouts.
   const recentWorkouts: WorkoutCompleted[] = [];
@@ -74,6 +71,14 @@ async function main(): Promise<void> {
   );
   console.log('Bootstrapping NestJS context...');
   const app = await NestFactory.createApplicationContext(AppModule, { bufferLogs: false });
+  const config = app.get<ConfigService<Env, true>>(ConfigService);
+  const repo = app.get(AthleteProfileRepository);
+  const userId = config.get('DEV_USER_ID', { infer: true });
+
+  const athleteProfile = await loadProfile({
+    fromPath: profilePath,
+    fromDb: profilePath ? undefined : { userId, repo },
+  });
   const service = app.get(Pass2GenerationService);
 
   mkdirSync(OUTPUT_DIR, { recursive: true });
@@ -153,4 +158,9 @@ async function main(): Promise<void> {
   process.exit(exitCode);
 }
 
-void main();
+void main()
+  .then(() => process.exit(0))
+  .catch((err) => {
+    console.error(err);
+    process.exit(1);
+  });
