@@ -1,7 +1,13 @@
 import type { AthleteProfile } from '@eta/shared-types';
-import { describe, expect, it, vi } from 'vitest';
-import type { AthleteProfileRepository } from '../../../db/repositories/athlete-profile.repository.js';
-import type { WorkoutsCompletedRepository } from '../../../db/repositories/workouts-completed.repository.js';
+import { sql } from 'drizzle-orm';
+import { drizzle, type PostgresJsDatabase } from 'drizzle-orm/postgres-js';
+import { migrate } from 'drizzle-orm/postgres-js/migrator';
+import postgres from 'postgres';
+import { PostgreSqlContainer, type StartedPostgreSqlContainer } from '@testcontainers/postgresql';
+import { afterAll, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
+import * as schema from '../../../db/schema/index.js';
+import { AthleteProfileRepository } from '../../../db/repositories/athlete-profile.repository.js';
+import { WorkoutsCompletedRepository } from '../../../db/repositories/workouts-completed.repository.js';
 import type { WorkoutsCompletedRow } from '../../../db/schema/workouts-completed.js';
 import { StravaRenormalizeService } from './strava-renormalize.service.js';
 
@@ -172,5 +178,134 @@ describe('StravaRenormalizeService', () => {
     expect(result.failed).toBe(1);
     expect(result.recomputed).toBe(1);
     expect(upsertSpy).toHaveBeenCalledTimes(1);
+  });
+});
+
+describe('StravaRenormalizeService (real Postgres)', () => {
+  let container: StartedPostgreSqlContainer;
+  let client: ReturnType<typeof postgres>;
+  let db: PostgresJsDatabase<typeof schema>;
+  let svc: StravaRenormalizeService;
+  let workoutsRepo: WorkoutsCompletedRepository;
+  let profilesRepo: AthleteProfileRepository;
+
+  beforeAll(async () => {
+    container = await new PostgreSqlContainer('postgres:16-alpine').start();
+    client = postgres(container.getConnectionUri(), { max: 5 });
+    db = drizzle(client, { schema });
+    await migrate(db, { migrationsFolder: './drizzle' });
+    workoutsRepo = new WorkoutsCompletedRepository(db);
+    profilesRepo = new AthleteProfileRepository(db);
+    svc = new StravaRenormalizeService(workoutsRepo, profilesRepo);
+  }, 120_000);
+
+  afterAll(async () => {
+    if (client) await client.end();
+    if (container) await container.stop();
+  }, 30_000);
+
+  beforeEach(async () => {
+    await db.execute(sql`TRUNCATE TABLE athlete_profiles, workouts_completed RESTART IDENTITY CASCADE`);
+  });
+
+  it('flips only the bike-with-power row and leaves others pending', async () => {
+    const userId = '22222222-2222-2222-2222-222222222222';
+    await profilesRepo.create({ userId, profile: profileWithFtp(200) });
+
+    // Seed three rows directly via upsert — strip the WorkoutsCompletedRow-only
+    // fields (id, createdAt, updatedAt) so we're passing a NewWorkoutsCompletedRow shape.
+    const bikeWithPower = bikeWithPowerRow('100');
+    await workoutsRepo.upsert({
+      userId,
+      source: bikeWithPower.source,
+      externalId: bikeWithPower.externalId,
+      date: bikeWithPower.date,
+      discipline: bikeWithPower.discipline,
+      workoutCode: bikeWithPower.workoutCode,
+      actualTss: bikeWithPower.actualTss,
+      tssStatus: bikeWithPower.tssStatus,
+      plannedTss: bikeWithPower.plannedTss,
+      plannedDurationSeconds: bikeWithPower.plannedDurationSeconds,
+      actualDurationSeconds: bikeWithPower.actualDurationSeconds,
+      perceivedExertion: bikeWithPower.perceivedExertion,
+      notes: bikeWithPower.notes,
+      raw: {
+        id: 100,
+        type: 'Ride',
+        start_date_local: '2026-06-01T08:00:00Z',
+        moving_time: 3600,
+        elapsed_time: 3700,
+        name: 'Bike with power',
+        weighted_average_watts: 200,
+        average_watts: 195,
+      },
+    });
+
+    const bikeNoPower = bikeWithPowerRow('101');
+    await workoutsRepo.upsert({
+      userId,
+      source: bikeNoPower.source,
+      externalId: bikeNoPower.externalId,
+      date: bikeNoPower.date,
+      discipline: bikeNoPower.discipline,
+      workoutCode: bikeNoPower.workoutCode,
+      actualTss: bikeNoPower.actualTss,
+      tssStatus: bikeNoPower.tssStatus,
+      plannedTss: bikeNoPower.plannedTss,
+      plannedDurationSeconds: bikeNoPower.plannedDurationSeconds,
+      actualDurationSeconds: bikeNoPower.actualDurationSeconds,
+      perceivedExertion: bikeNoPower.perceivedExertion,
+      notes: bikeNoPower.notes,
+      raw: {
+        id: 101,
+        type: 'Ride',
+        start_date_local: '2026-06-01T08:00:00Z',
+        moving_time: 3600,
+        elapsed_time: 3700,
+        name: 'Bike no power',
+      },
+    });
+
+    const run = runRow('102');
+    await workoutsRepo.upsert({
+      userId,
+      source: run.source,
+      externalId: run.externalId,
+      date: run.date,
+      discipline: run.discipline,
+      workoutCode: run.workoutCode,
+      actualTss: run.actualTss,
+      tssStatus: run.tssStatus,
+      plannedTss: run.plannedTss,
+      plannedDurationSeconds: run.plannedDurationSeconds,
+      actualDurationSeconds: run.actualDurationSeconds,
+      perceivedExertion: run.perceivedExertion,
+      notes: run.notes,
+      raw: {
+        id: 102,
+        type: 'Run',
+        start_date_local: '2026-06-01T08:00:00Z',
+        moving_time: 3600,
+        elapsed_time: 3700,
+        name: 'Easy run',
+      },
+    });
+
+    const result = await svc.run(userId);
+
+    expect(result.considered).toBe(3);
+    expect(result.recomputed).toBe(1);
+    expect(result.stillPending).toBe(2);
+    expect(result.failed).toBe(0);
+
+    const bikeRow = await workoutsRepo.findBySourceAndExternalId('strava', '100');
+    expect(bikeRow?.tssStatus).toBe('computed');
+    expect(bikeRow?.actualTss).not.toBeNull();
+
+    const noPower = await workoutsRepo.findBySourceAndExternalId('strava', '101');
+    expect(noPower?.tssStatus).toBe('pending_inference');
+
+    const runResult = await workoutsRepo.findBySourceAndExternalId('strava', '102');
+    expect(runResult?.tssStatus).toBe('pending_inference');
   });
 });
