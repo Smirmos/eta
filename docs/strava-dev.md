@@ -125,3 +125,37 @@ does not duplicate rows.
 - **Strava-only mode** (no wearable connected) is verified at the Pass 3
   service level — readiness data absent → plan generation runs with
   `avgReadinessLast7d=50` and hard-rules engine produces zero firings.
+
+## AthleteProfile seeding + renormalisation
+
+After OAuth + backfill have populated `workouts_completed` rows, seed an
+`AthleteProfile` so TSS can be computed for bike-with-power activities.
+
+```sh
+pnpm seed:profile                  # uses test-profile.json + DEV_USER_ID
+pnpm seed:profile -- --profile=<path>
+pnpm seed:profile -- --user=<uuid>
+```
+
+The script creates a new profile row (append-only history) and immediately
+runs a renormalise pass that walks existing `pending_inference` rows for that
+user, recomputes TSS where possible (today: bike-with-power), and upserts.
+
+Equivalent HTTP path:
+
+```sh
+curl -X POST http://localhost:3000/athlete-profiles \
+  -H 'content-type: application/json' \
+  -d @apps/api/scripts/test-profile.json
+
+curl http://localhost:3000/athlete-profiles/me
+```
+
+The POST kicks off renormalisation in the background (fire-and-forget); tail
+the API logs to see its summary.
+
+`pnpm generate:test-plan`, `generate:test-week`, and `render:plan` now default
+to the DB profile for `DEV_USER_ID`. Pass `--profile=<path>` to override with
+a JSON fixture (e.g. for synthetic scenarios like `test-profile-5day.json`).
+`pnpm generate:test-adaptation` is unaffected — it uses scenario-specific
+hardcoded profiles for Pass 3 hard-rule branch coverage.
