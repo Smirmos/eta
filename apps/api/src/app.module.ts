@@ -10,6 +10,7 @@ import { ConfigModule } from '@nestjs/config';
 import { validateEnv } from './config/env.schema.js';
 import { HealthController } from './common/health.controller.js';
 import { PlanGenerationModule } from './modules/plan-generation/plan-generation.module.js';
+import { AthleteProfileModule } from './modules/athlete-profile/athlete-profile.module.js';
 import { StravaModule } from './modules/integrations/strava/strava.module.js';
 
 function optionalStravaModule(): DynamicModule[] {
@@ -28,6 +29,7 @@ function optionalStravaModule(): DynamicModule[] {
       envFilePath: ['../../.env', '.env'],
     }),
     PlanGenerationModule,
+    AthleteProfileModule,
     ...optionalStravaModule(),
   ],
   controllers: [HealthController],
