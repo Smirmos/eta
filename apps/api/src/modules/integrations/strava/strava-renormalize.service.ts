@@ -1,23 +1,8 @@
 import { Injectable, Logger } from '@nestjs/common';
-import { z } from 'zod';
 import { AthleteProfileRepository } from '../../../db/repositories/athlete-profile.repository.js';
 import { WorkoutsCompletedRepository } from '../../../db/repositories/workouts-completed.repository.js';
 import { normalizeStravaActivity } from './strava-normalizer.js';
-import type { StravaActivity } from './strava.types.js';
-
-/**
- * Minimal guard that ensures the stored raw JSONB has the fields that
- * `normalizeStravaActivity` reads unconditionally. Deliberately lenient on
- * `id` (coerced to number so NaN is accepted — the normalizer calls
- * `String(activity.id)` which handles NaN gracefully).
- */
-const rawActivityGuard = z.object({
-  id: z.union([z.number(), z.nan()]),
-  type: z.string(),
-  start_date_local: z.string(),
-  moving_time: z.number().int().nonnegative(),
-  elapsed_time: z.number().int().nonnegative(),
-});
+import { stravaActivitySchema } from './strava.types.js';
 
 export interface RenormalizeResult {
   userId: string;
@@ -65,8 +50,11 @@ export class StravaRenormalizeService {
 
     for (const row of rows) {
       try {
-        rawActivityGuard.parse(row.raw);
-        const activity = row.raw as StravaActivity;
+        const parsed = stravaActivitySchema.safeParse(row.raw);
+        if (!parsed.success) {
+          throw new Error(`Malformed raw activity: ${parsed.error.message}`);
+        }
+        const activity = parsed.data;
         const normalized = normalizeStravaActivity({
           userId,
           activity,

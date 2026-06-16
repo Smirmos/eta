@@ -60,7 +60,7 @@ function bikeWithPowerRow(externalId: string): WorkoutsCompletedRow {
     perceivedExertion: null,
     notes: null,
     raw: {
-      id: Number(externalId),
+      id: 1,
       type: 'Ride',
       start_date_local: '2026-06-01T08:00:00Z',
       moving_time: 3600,
@@ -80,7 +80,7 @@ function runRow(externalId: string): WorkoutsCompletedRow {
     ...row,
     discipline: 'run',
     raw: {
-      id: Number(externalId),
+      id: 1,
       type: 'Run',
       start_date_local: '2026-06-01T08:00:00Z',
       moving_time: 3600,
