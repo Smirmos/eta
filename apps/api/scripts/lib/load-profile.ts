@@ -1,5 +1,5 @@
 import { readFileSync } from 'node:fs';
-import { type AthleteProfile, athleteProfileSchema } from '@eta/shared-types';
+import { type AthleteProfile, athleteProfileInputSchema } from '@eta/shared-types';
 import type { AthleteProfileRepository } from '../../src/db/repositories/athlete-profile.repository.js';
 
 export interface LoadProfileArgs {
@@ -18,7 +18,7 @@ export async function loadProfile(args: LoadProfileArgs): Promise<AthleteProfile
   if (args.fromPath) {
     const raw = readFileSync(args.fromPath, 'utf-8');
     const json = JSON.parse(raw) as unknown;
-    const parsed = athleteProfileSchema.safeParse(json);
+    const parsed = athleteProfileInputSchema.safeParse(json);
     if (!parsed.success) {
       throw new Error(
         `Profile at ${args.fromPath} failed schema validation: ${parsed.error.message}`,

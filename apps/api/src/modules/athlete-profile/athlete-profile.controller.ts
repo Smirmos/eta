@@ -8,7 +8,7 @@ import {
   Post,
 } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
-import { type AthleteProfile, athleteProfileSchema } from '@eta/shared-types';
+import { type AthleteProfile, athleteProfileInputSchema } from '@eta/shared-types';
 import type { Env } from '../../config/env.schema.js';
 import { AthleteProfileService } from './athlete-profile.service.js';
 
@@ -29,7 +29,7 @@ export class AthleteProfileController {
   @Post()
   @HttpCode(201)
   async create(@Body() body: unknown): Promise<CreateProfileResponse> {
-    const parsed = athleteProfileSchema.safeParse(body);
+    const parsed = athleteProfileInputSchema.safeParse(body);
     if (!parsed.success) {
       throw new BadRequestException({
         error: 'invalid_profile',
