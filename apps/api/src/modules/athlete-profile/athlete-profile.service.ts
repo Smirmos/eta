@@ -17,6 +17,9 @@ export class AthleteProfileService {
 
   async create(input: { userId: string; profile: AthleteProfile }): Promise<AthleteProfileRecord> {
     const record = await this.repo.create(input);
+    // Fire-and-forget — the HTTP path returns 201 immediately and renormalise
+    // runs in the background. Callers that need a synchronous result (seed CLI)
+    // call StravaRenormalizeService.run() directly.
     setImmediate(() => {
       this.renormalize.run(input.userId).catch((err: unknown) => {
         const detail = err instanceof Error ? err.stack ?? err.message : String(err);
