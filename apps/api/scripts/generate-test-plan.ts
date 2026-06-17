@@ -72,7 +72,7 @@ async function main(): Promise<void> {
 
   let exitCode = 0;
   try {
-    const result = await service.generateMacroPlan(profile, PROFILE_ID);
+    const result = await service.generateMacroPlan(profile, PROFILE_ID, userId);
     writeFileSync(rawPath, result.rawResponse);
     writeFileSync(planPath, JSON.stringify(result.plan, null, 2));
     console.log(`Validation: PASS, weeks: ${result.plan.totalWeeks}`);

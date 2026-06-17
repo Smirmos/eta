@@ -9,6 +9,7 @@ import {
 } from '@eta/shared-types';
 import type { ZodIssue } from 'zod';
 import type { Env } from '../../config/env.schema.js';
+import { MacroPlansRepository } from '../../db/repositories/macro-plans.repository.js';
 import type { KnowledgeBaseLoader } from './knowledge-base.loader.js';
 import { buildMacroPlanPrompt } from './prompts/macro-plan.prompt.js';
 
@@ -26,6 +27,7 @@ export interface GenerateMacroPlanResult {
     cacheReadInputTokens: number;
   };
   durationMs: number;
+  macroPlanId: string;
 }
 
 export class PlanGenerationError extends Error {
@@ -112,6 +114,7 @@ export class PlanGenerationService {
   constructor(
     private readonly config: ConfigService<Env, true>,
     private readonly kbLoader: KnowledgeBaseLoader,
+    private readonly macroPlansRepo: MacroPlansRepository,
     anthropicFactory: AnthropicFactory = defaultAnthropicFactory,
   ) {
     const apiKey = this.config.get('ANTHROPIC_API_KEY', { infer: true });
@@ -123,6 +126,7 @@ export class PlanGenerationService {
   async generateMacroPlan(
     rawProfile: unknown,
     athleteProfileId: string,
+    userId: string,
   ): Promise<GenerateMacroPlanResult> {
     const profile = this.validateProfile(rawProfile);
     const kb = this.kbLoader.get();
@@ -217,11 +221,19 @@ export class PlanGenerationService {
       throw err;
     }
 
+    const record = await this.macroPlansRepo.create({
+      userId,
+      athleteProfileId,
+      plan: result.data,
+    });
+    this.logger.log(`Persisted macro plan ${record.id} for user ${userId}.`);
+
     return {
       plan: result.data,
       rawResponse,
       usage,
       durationMs,
+      macroPlanId: record.id,
     };
   }
 
