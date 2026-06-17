@@ -19,6 +19,8 @@ export default defineConfig({
     './src/db/schema/athlete-profile.ts',
     './src/db/schema/oauth-credentials.ts',
     './src/db/schema/workouts-completed.ts',
+    './src/db/schema/macro-plans.ts',
+    './src/db/schema/weekly-details.ts',
   ],
   out: './drizzle',
   dialect: 'postgresql',

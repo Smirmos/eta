@@ -15,6 +15,13 @@
       "when": 1780325218869,
       "tag": "0001_ambiguous_madripoor",
       "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "7",
+      "when": 1781704067005,
+      "tag": "0002_nifty_epoch",
+      "breakpoints": true
     }
   ]
 }
