@@ -4,6 +4,7 @@ import type { ConfigService } from '@nestjs/config';
 import { weeklyDetailSchema, type MacroPlanWeek, type WeeklyDetail } from '@eta/shared-types';
 import type { ZodIssue } from 'zod';
 import type { Env } from '../../../config/env.schema.js';
+import { WeeklyDetailsRepository } from '../../../db/repositories/weekly-details.repository.js';
 import type { KnowledgeBaseLoader } from '../knowledge-base.loader.js';
 import { buildKbSlice } from './pass2-context-builder.js';
 import { buildPass2Prompt } from './pass2-prompt.js';
@@ -45,6 +46,7 @@ export interface GenerateWeeklyDetailResult {
   rawResponse: string;
   usage: { inputTokens: number; outputTokens: number };
   durationMs: number;
+  weeklyDetailId: string;
 }
 
 type AnthropicLike = Pick<Anthropic, 'messages'>;
@@ -63,6 +65,7 @@ export class Pass2GenerationService {
   constructor(
     private readonly config: ConfigService<Env, true>,
     private readonly kbLoader: KnowledgeBaseLoader,
+    private readonly weeklyRepo: WeeklyDetailsRepository,
     anthropicFactory: AnthropicFactory = defaultAnthropicFactory,
   ) {
     const apiKey = this.config.get('ANTHROPIC_API_KEY', { infer: true });
@@ -167,6 +170,14 @@ export class Pass2GenerationService {
     const annotated = annotateWithComputedFields({ weeklyDetail, summary });
     const appliedSources = extractAppliedSources(annotated);
 
+    const record = await this.weeklyRepo.create({
+      macroPlanId: input.macroPlanId,
+      detail: annotated,
+    });
+    this.logger.log(
+      `Persisted weekly detail ${record.id} for macroPlan ${input.macroPlanId} week ${record.weekNumber}.`,
+    );
+
     return {
       output: {
         weeklyDetail: annotated,
@@ -176,6 +187,7 @@ export class Pass2GenerationService {
       rawResponse,
       usage,
       durationMs,
+      weeklyDetailId: record.id,
     };
   }
 

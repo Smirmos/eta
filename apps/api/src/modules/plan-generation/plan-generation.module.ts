@@ -3,6 +3,7 @@ import { ConfigService } from '@nestjs/config';
 import type { Env } from '../../config/env.schema.js';
 import { DbModule } from '../../db/db.module.js';
 import { MacroPlansRepository } from '../../db/repositories/macro-plans.repository.js';
+import { WeeklyDetailsRepository } from '../../db/repositories/weekly-details.repository.js';
 import { KnowledgeBaseLoader } from './knowledge-base.loader.js';
 import { Pass2GenerationService } from './pass2/pass2.service.js';
 import { Pass3GenerationService } from './pass3/pass3.service.js';
@@ -16,6 +17,7 @@ import { PlanGenerationService } from './plan-generation.service.js';
   imports: [DbModule],
   providers: [
     MacroPlansRepository,
+    WeeklyDetailsRepository,
     {
       provide: KnowledgeBaseLoader,
       inject: [ConfigService],
@@ -33,11 +35,12 @@ import { PlanGenerationService } from './plan-generation.service.js';
     },
     {
       provide: Pass2GenerationService,
-      inject: [ConfigService, KnowledgeBaseLoader],
+      inject: [ConfigService, KnowledgeBaseLoader, WeeklyDetailsRepository],
       useFactory: (
         config: ConfigService<Env, true>,
         kbLoader: KnowledgeBaseLoader,
-      ): Pass2GenerationService => new Pass2GenerationService(config, kbLoader),
+        weeklyRepo: WeeklyDetailsRepository,
+      ): Pass2GenerationService => new Pass2GenerationService(config, kbLoader, weeklyRepo),
     },
     {
       provide: Pass3GenerationService,
