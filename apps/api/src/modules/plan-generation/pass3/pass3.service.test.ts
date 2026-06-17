@@ -8,6 +8,10 @@ import type {
 } from '@eta/shared-types';
 import { describe, expect, it, vi } from 'vitest';
 import type { Env } from '../../../config/env.schema.js';
+import type {
+  AdaptationRecord,
+  AdaptationsRepository,
+} from '../../../db/repositories/adaptations.repository.js';
 import type { KnowledgeBase, KnowledgeBaseLoader } from '../knowledge-base.loader.js';
 import {
   type AnthropicLike,
@@ -56,6 +60,27 @@ function makeKbLoader(): KnowledgeBaseLoader {
     loadedFrom: '/tmp/kb',
   };
   return { get: () => kb } as unknown as KnowledgeBaseLoader;
+}
+
+function makeAdaptationsRepo(): {
+  repo: AdaptationsRepository;
+  createSpy: ReturnType<typeof vi.fn>;
+} {
+  const createSpy = vi.fn(
+    async (input: {
+      macroPlanId: string;
+      forWeekStart: string;
+      suggestion: unknown;
+    }): Promise<AdaptationRecord> => ({
+      id: 'adaptation-id-1',
+      macroPlanId: input.macroPlanId,
+      forWeekStart: input.forWeekStart,
+      suggestion: input.suggestion as never,
+      generatedAt: new Date('2026-06-17T12:00:00Z'),
+    }),
+  );
+  const repo = { create: createSpy } as unknown as AdaptationsRepository;
+  return { repo, createSpy };
 }
 
 function fakeAnthropic(
@@ -178,9 +203,12 @@ describe('Pass3GenerationService', () => {
       cacheCreate: 8000,
       cacheRead: 0,
     });
-    const service = new Pass3GenerationService(makeConfig(), makeKbLoader(), () => client);
+    const { repo: adaptationsRepo } = makeAdaptationsRepo();
+    const service = new Pass3GenerationService(makeConfig(), makeKbLoader(), adaptationsRepo, () => client);
 
     const result = await service.generateAdaptation({
+      macroPlanId: 'macro-plan-id-1',
+      forWeekStart: '2026-05-11',
       weeklyDraft: sampleDraft(),
       completedLastWeek: [],
       readinessHistory: stubReadinessHistory(50),
@@ -207,9 +235,12 @@ describe('Pass3GenerationService', () => {
       avgReadinessLast7d: 999,
     };
     const client = fakeAnthropic(JSON.stringify(wrong));
-    const service = new Pass3GenerationService(makeConfig(), makeKbLoader(), () => client);
+    const { repo: adaptationsRepo } = makeAdaptationsRepo();
+    const service = new Pass3GenerationService(makeConfig(), makeKbLoader(), adaptationsRepo, () => client);
 
     const result = await service.generateAdaptation({
+      macroPlanId: 'macro-plan-id-1',
+      forWeekStart: '2026-05-11',
       weeklyDraft: sampleDraft(),
       completedLastWeek: [],
       readinessHistory: stubReadinessHistory(42),
@@ -223,9 +254,12 @@ describe('Pass3GenerationService', () => {
 
   it('throws Pass3GenerationError with raw response when LLM emits invalid JSON', async () => {
     const client = fakeAnthropic('not json');
-    const service = new Pass3GenerationService(makeConfig(), makeKbLoader(), () => client);
+    const { repo: adaptationsRepo } = makeAdaptationsRepo();
+    const service = new Pass3GenerationService(makeConfig(), makeKbLoader(), adaptationsRepo, () => client);
     await expect(
       service.generateAdaptation({
+        macroPlanId: 'macro-plan-id-1',
+        forWeekStart: '2026-05-11',
         weeklyDraft: sampleDraft(),
         completedLastWeek: [],
         readinessHistory: stubReadinessHistory(50),
@@ -240,9 +274,12 @@ describe('Pass3GenerationService', () => {
 
   it('throws Pass3GenerationError with validation issues when schema rejects the output', async () => {
     const client = fakeAnthropic('{"forWeekStart":"bad","adjustments":[]}');
-    const service = new Pass3GenerationService(makeConfig(), makeKbLoader(), () => client);
+    const { repo: adaptationsRepo } = makeAdaptationsRepo();
+    const service = new Pass3GenerationService(makeConfig(), makeKbLoader(), adaptationsRepo, () => client);
     try {
       await service.generateAdaptation({
+        macroPlanId: 'macro-plan-id-1',
+        forWeekStart: '2026-05-11',
         weeklyDraft: sampleDraft(),
         completedLastWeek: [],
         readinessHistory: stubReadinessHistory(50),
@@ -262,9 +299,12 @@ describe('Pass3GenerationService', () => {
     const sug = validSuggestion();
     sug.adjustments = [];
     const client = fakeAnthropic(JSON.stringify(sug));
-    const service = new Pass3GenerationService(makeConfig(), makeKbLoader(), () => client);
+    const { repo: adaptationsRepo } = makeAdaptationsRepo();
+    const service = new Pass3GenerationService(makeConfig(), makeKbLoader(), adaptationsRepo, () => client);
     try {
       await service.generateAdaptation({
+        macroPlanId: 'macro-plan-id-1',
+        forWeekStart: '2026-05-11',
         weeklyDraft: sampleDraft(),
         completedLastWeek: [],
         readinessHistory: stubReadinessHistory(50),
@@ -289,9 +329,12 @@ describe('Pass3GenerationService', () => {
         },
       },
     } as unknown as AnthropicLike;
-    const service = new Pass3GenerationService(makeConfig(), makeKbLoader(), () => failingClient);
+    const { repo: adaptationsRepo } = makeAdaptationsRepo();
+    const service = new Pass3GenerationService(makeConfig(), makeKbLoader(), adaptationsRepo, () => failingClient);
     await expect(
       service.generateAdaptation({
+        macroPlanId: 'macro-plan-id-1',
+        forWeekStart: '2026-05-11',
         weeklyDraft: sampleDraft(),
         completedLastWeek: [],
         readinessHistory: stubReadinessHistory(50),
@@ -325,9 +368,12 @@ describe('Pass3GenerationService', () => {
         }) as unknown as Anthropic.Beta.Messages.BetaMessage,
     );
     const client = { beta: { messages: { create: createSpy } } } as unknown as AnthropicLike;
-    const service = new Pass3GenerationService(makeConfig(), makeKbLoader(), () => client);
+    const { repo: adaptationsRepo } = makeAdaptationsRepo();
+    const service = new Pass3GenerationService(makeConfig(), makeKbLoader(), adaptationsRepo, () => client);
 
     await service.generateAdaptation({
+      macroPlanId: 'macro-plan-id-1',
+      forWeekStart: '2026-05-11',
       weeklyDraft: sampleDraft(),
       completedLastWeek: [],
       readinessHistory: stubReadinessHistory(50),
@@ -378,9 +424,12 @@ describe('Pass3GenerationService', () => {
         }) as unknown as Anthropic.Beta.Messages.BetaMessage,
     );
     const client = { beta: { messages: { create: createSpy } } } as unknown as AnthropicLike;
-    const service = new Pass3GenerationService(makeConfig(), makeKbLoader(), () => client);
+    const { repo: adaptationsRepo } = makeAdaptationsRepo();
+    const service = new Pass3GenerationService(makeConfig(), makeKbLoader(), adaptationsRepo, () => client);
 
     const result = await service.generateAdaptation({
+      macroPlanId: 'macro-plan-id-1',
+      forWeekStart: '2026-05-11',
       weeklyDraft: sampleDraft(),
       completedLastWeek: [],
       readinessHistory: lowReadinessHistory,
@@ -427,9 +476,12 @@ describe('Pass3GenerationService', () => {
         }) as unknown as Anthropic.Beta.Messages.BetaMessage,
     );
     const client = { beta: { messages: { create: createSpy } } } as unknown as AnthropicLike;
-    const service = new Pass3GenerationService(makeConfig(), makeKbLoader(), () => client);
+    const { repo: adaptationsRepo } = makeAdaptationsRepo();
+    const service = new Pass3GenerationService(makeConfig(), makeKbLoader(), adaptationsRepo, () => client);
 
     const result = await service.generateAdaptation({
+      macroPlanId: 'macro-plan-id-1',
+      forWeekStart: '2026-05-11',
       weeklyDraft: sampleDraft(),
       completedLastWeek: [],
       readinessHistory: [], // No wearable connected.
@@ -446,5 +498,46 @@ describe('Pass3GenerationService', () => {
     const userDynamic = calls[0]![0]!.messages[0]!.content[1]!.text;
     expect(userDynamic).toContain('no hard rules fired this week');
     expect(userDynamic).toContain('"avgReadinessLast7d": 50');
+  });
+
+  it('persists the adaptation after successful generation', async () => {
+    const client = fakeAnthropic(JSON.stringify(validSuggestion()));
+    const { repo: adaptationsRepo, createSpy } = makeAdaptationsRepo();
+    const service = new Pass3GenerationService(makeConfig(), makeKbLoader(), adaptationsRepo, () => client);
+
+    const result = await service.generateAdaptation({
+      macroPlanId: 'macro-plan-id-1',
+      forWeekStart: '2026-05-11',
+      weeklyDraft: sampleDraft(),
+      completedLastWeek: [],
+      readinessHistory: stubReadinessHistory(50),
+      athleteProfile: sampleProfile(),
+    });
+
+    expect(createSpy).toHaveBeenCalledTimes(1);
+    expect(createSpy.mock.calls[0]![0]).toMatchObject({
+      macroPlanId: 'macro-plan-id-1',
+      forWeekStart: '2026-05-11',
+    });
+    expect(result.adaptationId).toBe('adaptation-id-1');
+  });
+
+  it('skips persistence when dryRun=true', async () => {
+    const client = fakeAnthropic(JSON.stringify(validSuggestion()));
+    const { repo: adaptationsRepo, createSpy } = makeAdaptationsRepo();
+    const service = new Pass3GenerationService(makeConfig(), makeKbLoader(), adaptationsRepo, () => client);
+
+    const result = await service.generateAdaptation({
+      macroPlanId: 'macro-plan-id-1',
+      forWeekStart: '2026-05-11',
+      dryRun: true,
+      weeklyDraft: sampleDraft(),
+      completedLastWeek: [],
+      readinessHistory: stubReadinessHistory(50),
+      athleteProfile: sampleProfile(),
+    });
+
+    expect(createSpy).not.toHaveBeenCalled();
+    expect(result.adaptationId).toBe('dry-run');
   });
 });

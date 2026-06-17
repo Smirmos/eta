@@ -35,7 +35,13 @@ function parseScenario(): Pass3ScenarioName {
 
 async function main(): Promise<void> {
   const scenario = parseScenario();
-  const input = pass3Scenarios[scenario]();
+  const scenarioInput = pass3Scenarios[scenario]();
+  const input = {
+    ...scenarioInput,
+    macroPlanId: '00000000-0000-0000-0000-000000000000', // sentinel — dry-run mode, no real plan
+    forWeekStart: scenarioInput.weeklyDraft.weekStartDate,
+    dryRun: true as const,
+  };
 
   console.log(`Scenario: ${scenario}`);
   console.log(

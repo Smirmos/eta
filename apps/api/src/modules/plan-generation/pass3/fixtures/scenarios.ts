@@ -247,6 +247,8 @@ function perfectWeek(): Pass3Input {
     },
   ];
   return {
+    macroPlanId: '00000000-0000-0000-0000-000000000000',
+    forWeekStart: WEEK_START,
     weeklyDraft: weeklyDraft(),
     completedLastWeek,
     readinessHistory: flatReadinessHistory(72),
@@ -325,6 +327,8 @@ function missedLongRide(): Pass3Input {
     },
   ];
   return {
+    macroPlanId: '00000000-0000-0000-0000-000000000000',
+    forWeekStart: WEEK_START,
     weeklyDraft: weeklyDraft(),
     completedLastWeek,
     readinessHistory: flatReadinessHistory(48),
@@ -412,6 +416,8 @@ function lowRecovery(): Pass3Input {
     },
   ];
   return {
+    macroPlanId: '00000000-0000-0000-0000-000000000000',
+    forWeekStart: WEEK_START,
     weeklyDraft: weeklyDraft(),
     completedLastWeek,
     readinessHistory: flatReadinessHistory(30),
@@ -506,6 +512,8 @@ function fitnessLeap(): Pass3Input {
   }
 
   return {
+    macroPlanId: '00000000-0000-0000-0000-000000000000',
+    forWeekStart: WEEK_START,
     weeklyDraft: weeklyDraft(),
     completedLastWeek,
     readinessHistory: flatReadinessHistory(82),
