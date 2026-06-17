@@ -21,6 +21,7 @@ export default defineConfig({
     './src/db/schema/workouts-completed.ts',
     './src/db/schema/macro-plans.ts',
     './src/db/schema/weekly-details.ts',
+    './src/db/schema/adaptation-suggestions.ts',
   ],
   out: './drizzle',
   dialect: 'postgresql',
