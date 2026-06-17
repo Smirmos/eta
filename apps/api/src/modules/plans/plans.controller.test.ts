@@ -33,6 +33,7 @@ const sampleTree = (): PlanTree => ({
   },
   generatedAt: new Date('2026-06-17T12:00:00Z'),
   weeks: [],
+  currentAdaptation: null,
 });
 
 describe('PlansController', () => {
