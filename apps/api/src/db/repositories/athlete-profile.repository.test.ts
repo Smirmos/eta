@@ -160,6 +160,18 @@ describe('AthleteProfileRepository', () => {
     expect(result).toBeNull();
   });
 
+  it('findLatestRecordForUser returns the latest record for a user', async () => {
+    const userId = '33333333-3333-3333-3333-333333333333';
+    await repo.create({ userId, profile: sampleProfile() });
+    await new Promise((r) => setTimeout(r, 50));
+    const second = await repo.create({ userId, profile: sampleProfile() });
+    const latest = await repo.findLatestRecordForUser(userId);
+    expect(latest).not.toBeNull();
+    expect(latest!.id).toBe(second.id);
+    expect(latest!.userId).toBe(userId);
+    expect(latest!.profile.experienceLevel).toBeDefined();
+  });
+
   it('throws a descriptive error when the persisted JSONB does not match the schema', async () => {
     // Insert a row with malformed JSONB by going around the type-checked builder.
     // The DB cares about JSONB validity (any JSON), not AthleteProfile shape — that's

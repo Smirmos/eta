@@ -4,9 +4,11 @@ import { dirname, join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { NestFactory } from '@nestjs/core';
 import { ConfigService } from '@nestjs/config';
+import type { AthleteProfile } from '@eta/shared-types';
 import { AppModule } from '../src/app.module.js';
 import type { Env } from '../src/config/env.schema.js';
 import { AthleteProfileRepository } from '../src/db/repositories/athlete-profile.repository.js';
+import { AthleteProfileService } from '../src/modules/athlete-profile/athlete-profile.service.js';
 import {
   PlanGenerationError,
   PlanGenerationService,
@@ -30,35 +32,49 @@ function resolveProfilePath(): string | undefined {
   return resolve(process.cwd(), value);
 }
 
-// Profile ID is derived from the profile filename so that fixtures generated
-// against different profiles are easy to distinguish in scripts/output/.
-// When loaded from DB, falls back to the canonical Tallinn ID.
-function profileIdFor(profilePath: string | undefined): string {
-  if (!profilePath) return 'test-arkadiy-2026-08-22-tallinn';
-  const base = profilePath
-    .split('/')
-    .pop()!
-    .replace(/\.json$/, '');
-  if (base === 'test-profile') return 'test-arkadiy-2026-08-22-tallinn';
-  return `test-${base.replace(/^test-profile-/, '')}-2026-08-22-tallinn`;
+// Optional CLI arg: --user=<uuid>. Defaults to DEV_USER_ID from config.
+function resolveUserIdArg(): string | undefined {
+  const arg = process.argv.find((a) => a.startsWith('--user='));
+  if (!arg) return undefined;
+  return arg.split('=')[1] ?? undefined;
 }
 
 async function main(): Promise<void> {
   const PROFILE_PATH = resolveProfilePath();
-  const PROFILE_ID = profileIdFor(PROFILE_PATH);
+  const USER_ID_ARG = resolveUserIdArg();
   console.log(`Profile: ${PROFILE_PATH ?? '(DB lookup for DEV_USER_ID)'}`);
-  console.log(`Profile ID: ${PROFILE_ID}`);
 
   console.log(`Bootstrapping NestJS context...`);
   const app = await NestFactory.createApplicationContext(AppModule, { bufferLogs: false });
   const config = app.get<ConfigService<Env, true>>(ConfigService);
-  const repo = app.get(AthleteProfileRepository);
-  const userId = config.get('DEV_USER_ID', { infer: true });
+  const userId: string = USER_ID_ARG ?? config.get('DEV_USER_ID', { infer: true });
 
-  const profile = await loadProfile({
-    fromPath: PROFILE_PATH,
-    fromDb: PROFILE_PATH ? undefined : { userId, repo },
-  });
+  // Resolve both `profile` and the DB-record id that will be the FK target on
+  // the persisted macro plan. Two paths:
+  //   --profile=<path>  → load + auto-seed via AthleteProfileService.create
+  //   (no flag)         → fetch the latest record from the DB
+  let athleteProfileId: string;
+  let profile: AthleteProfile;
+
+  if (PROFILE_PATH) {
+    profile = await loadProfile({ fromPath: PROFILE_PATH });
+    const profileService = app.get(AthleteProfileService);
+    const record = await profileService.create({ userId, profile });
+    athleteProfileId = record.id;
+    console.log(`Auto-seeded profile ${record.id} from ${PROFILE_PATH}.`);
+  } else {
+    const profileRepo = app.get(AthleteProfileRepository);
+    const record = await profileRepo.findLatestRecordForUser(userId);
+    if (!record) {
+      throw new Error(
+        `No profile in DB for ${userId}. Run \`pnpm seed:profile\` first, or pass --profile=<path>.`,
+      );
+    }
+    athleteProfileId = record.id;
+    profile = record.profile;
+    console.log(`Loaded profile ${record.id} from DB for user ${userId}.`);
+  }
+
   const service = app.get(PlanGenerationService);
 
   mkdirSync(OUTPUT_DIR, { recursive: true });
@@ -72,9 +88,10 @@ async function main(): Promise<void> {
 
   let exitCode = 0;
   try {
-    const result = await service.generateMacroPlan(profile, PROFILE_ID, userId);
+    const result = await service.generateMacroPlan(profile, athleteProfileId, userId);
     writeFileSync(rawPath, result.rawResponse);
     writeFileSync(planPath, JSON.stringify(result.plan, null, 2));
+    console.log(`Persisted macro plan ${result.macroPlanId}.`);
     console.log(`Validation: PASS, weeks: ${result.plan.totalWeeks}`);
     console.log(`Duration: ${result.durationMs}ms`);
     console.log(
