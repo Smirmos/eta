@@ -21,7 +21,8 @@
     "generate:test-adaptation": "node --import @swc-node/register/esm-register scripts/generate-test-adaptation.ts",
     "render:plan": "node --import @swc-node/register/esm-register scripts/render-plan.ts",
     "strava:backfill": "node --import @swc-node/register/esm-register scripts/strava-backfill.ts",
-    "seed:profile": "node --import @swc-node/register/esm-register scripts/seed-profile.ts"
+    "seed:profile": "node --import @swc-node/register/esm-register scripts/seed-profile.ts",
+    "adapt:current-week": "node --import @swc-node/register/esm-register scripts/adapt-current-week.ts"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.32.0",
