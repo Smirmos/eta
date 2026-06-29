@@ -10,6 +10,7 @@
   },
   "scripts": {
     "dev:api": "pnpm --filter @eta/api dev",
+    "dev:web": "pnpm --filter @eta/web dev",
     "build": "pnpm -r run build",
     "test": "pnpm -r run test",
     "lint": "eslint \"{apps,packages}/**/*.{ts,tsx}\" --max-warnings 0",
