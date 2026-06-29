@@ -8,8 +8,14 @@ import { indexOfCurrentWeek } from './lib/current-week.js';
 
 type State = { kind: 'loading' } | { kind: 'done'; result: FetchResult };
 
+// Module-scope so the default has a STABLE identity across renders. An inline
+// default (`fetchTree = () => fetchPlanTree()`) creates a new function every
+// render, which would change the `load` useCallback every render and make the
+// mount effect re-fire endlessly (Maximum update depth exceeded).
+const defaultFetchTree = (): Promise<FetchResult> => fetchPlanTree();
+
 export function App({
-  fetchTree = (): Promise<FetchResult> => fetchPlanTree(),
+  fetchTree = defaultFetchTree,
 }: {
   fetchTree?: () => Promise<FetchResult>;
 } = {}): JSX.Element {

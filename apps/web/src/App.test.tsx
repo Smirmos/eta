@@ -22,3 +22,23 @@ test('shows the error state with a retry button', async () => {
   await waitFor(() => expect(screen.getByText(/boom/)).toBeInTheDocument());
   expect(screen.getByRole('button', { name: /retry/i })).toBeInTheDocument();
 });
+
+// Regression: the production path renders <App /> with NO fetchTree prop, so the
+// default fetcher is used. If that default has an unstable identity across
+// renders, the mount effect re-fires endlessly ("Maximum update depth
+// exceeded"). This exercises that path via a stubbed global fetch.
+test('renders with the default fetcher without an update-depth loop', async () => {
+  const tree = makePlanTreeFixture();
+  const fetchMock = vi.fn(
+    async () => ({ ok: true, status: 200, json: async () => tree }) as Response,
+  ) as unknown as typeof fetch;
+  vi.stubGlobal('fetch', fetchMock);
+  try {
+    render(<App />);
+    await waitFor(() => expect(screen.getByText('2026-07-13')).toBeInTheDocument());
+    // A render loop would call fetch far more than the single mount fetch.
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+  } finally {
+    vi.unstubAllGlobals();
+  }
+});
