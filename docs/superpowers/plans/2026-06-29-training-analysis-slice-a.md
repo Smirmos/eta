@@ -289,7 +289,7 @@ Expected: FAIL — module not found.
 ```ts
 import { Injectable } from '@nestjs/common';
 import type { Discipline, TrainingAnalysis, TrendDirection, WeekBucket } from '@eta/shared-types';
-import { WorkoutsCompletedRepository } from '../../db/repositories/workouts-completed.repository.js';
+import type { WorkoutsCompletedRepository } from '../../db/repositories/workouts-completed.repository.js';
 
 const DISCIPLINES: Discipline[] = ['swim', 'bike', 'run'];
 const round1 = (n: number): number => Math.round(n * 10) / 10;
@@ -615,7 +615,10 @@ export class TrainingController {
 
 - [ ] **Step 4: Implement `training.module.ts`**
 
-`TrainingNarrativeService` needs `ConfigService` injected by value, so use the `useFactory` provider style (matching `plan-generation.module.ts`).
+Both services import their dependencies with `import type` (the codebase
+convention in `plan-generation.module.ts` — keeps `consistent-type-imports` happy
+under `--max-warnings 0`), so both are registered via `useFactory`, providing the
+real instances explicitly rather than relying on decorator metadata.
 
 ```ts
 import { Module } from '@nestjs/common';
@@ -632,7 +635,12 @@ import { TrainingController } from './training.controller.js';
   controllers: [TrainingController],
   providers: [
     WorkoutsCompletedRepository,
-    TrainingAnalysisService,
+    {
+      provide: TrainingAnalysisService,
+      inject: [WorkoutsCompletedRepository],
+      useFactory: (workoutsRepo: WorkoutsCompletedRepository): TrainingAnalysisService =>
+        new TrainingAnalysisService(workoutsRepo),
+    },
     {
       provide: TrainingNarrativeService,
       inject: [ConfigService],
