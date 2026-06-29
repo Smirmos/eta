@@ -1,7 +1,7 @@
 import type { ConfigService } from '@nestjs/config';
 import { BadRequestException, NotFoundException } from '@nestjs/common';
 import type { AthleteProfile } from '@eta/shared-types';
-import { describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import type { Env } from '../../config/env.schema.js';
 import type {
   AthleteProfileRecord,
@@ -67,6 +67,15 @@ function makeService(opts: {
   } as unknown as AthleteProfileService;
   return { service, createSpy };
 }
+
+// Pin the system clock so the temporal refinements in `athleteProfileInputSchema`
+// (weeksUntilRace must equal floor((raceDate - now) / 7) ± 1) stay stable.
+beforeEach(() => {
+  vi.setSystemTime(new Date('2026-06-13T00:00:00Z'));
+});
+afterEach(() => {
+  vi.useRealTimers();
+});
 
 describe('AthleteProfileController', () => {
   it('POST validates the body and creates a profile', async () => {

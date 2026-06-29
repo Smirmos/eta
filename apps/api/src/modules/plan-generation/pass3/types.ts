@@ -46,6 +46,16 @@ export interface Pass3KbSlice {
 // ─── Inputs / outputs ────────────────────────────────────────────────────────
 
 export interface Pass3Input {
+  /** FK to the macro plan this adaptation belongs to. */
+  macroPlanId: string;
+  /** ISO date of the Monday of the upcoming week (matches weeklyDraft.weekStartDate). */
+  forWeekStart: string;
+  /**
+   * If true, skip persistence. Used by `pnpm generate:test-adaptation` which
+   * runs synthetic scenarios with no real macro plan in DB.
+   */
+  dryRun?: boolean;
+
   /**
    * Upcoming week's draft. In v1 this is a copy of the macro plan template
    * synthesised into a `WeeklyDetail`-shaped object; eventually it will be

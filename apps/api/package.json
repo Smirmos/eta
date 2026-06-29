@@ -13,15 +13,17 @@
     "test": "vitest run --passWithNoTests",
     "lint": "eslint \"src/**/*.ts\" --max-warnings 0",
     "typecheck": "tsc -p tsconfig.json --noEmit",
-    "db:generate": "drizzle-kit generate",
-    "db:migrate": "drizzle-kit migrate",
+    "db:generate": "NODE_OPTIONS='--require ./scripts/drizzle-js-to-ts-hook.cjs' drizzle-kit generate",
+    "db:migrate": "NODE_OPTIONS='--require ./scripts/drizzle-js-to-ts-hook.cjs' drizzle-kit migrate",
     "db:studio": "drizzle-kit studio",
     "generate:test-plan": "node --import @swc-node/register/esm-register scripts/generate-test-plan.ts",
     "generate:test-week": "node --import @swc-node/register/esm-register scripts/generate-test-week.ts",
     "generate:test-adaptation": "node --import @swc-node/register/esm-register scripts/generate-test-adaptation.ts",
     "render:plan": "node --import @swc-node/register/esm-register scripts/render-plan.ts",
+    "render:tree": "node --import @swc-node/register/esm-register scripts/render-tree.ts",
     "strava:backfill": "node --import @swc-node/register/esm-register scripts/strava-backfill.ts",
-    "seed:profile": "node --import @swc-node/register/esm-register scripts/seed-profile.ts"
+    "seed:profile": "node --import @swc-node/register/esm-register scripts/seed-profile.ts",
+    "adapt:current-week": "node --import @swc-node/register/esm-register scripts/adapt-current-week.ts"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.32.0",

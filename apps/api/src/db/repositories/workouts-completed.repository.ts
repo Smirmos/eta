@@ -1,5 +1,6 @@
 import { Inject, Injectable } from '@nestjs/common';
 import { and, eq, gte, lte } from 'drizzle-orm';
+import type { Discipline, WorkoutCode, WorkoutCompleted } from '@eta/shared-types';
 import { DB, type Db } from '../db.module.js';
 import {
   workoutsCompleted,
@@ -82,4 +83,44 @@ export class WorkoutsCompletedRepository {
         ),
       );
   }
+
+  /**
+   * Return canonical-shaped completed workouts for a user in [fromDate, toDate).
+   * Strava-only rows substitute discipline-based sentinel workoutCodes.
+   */
+  async findCanonicalForUserAndDateRange(
+    userId: string,
+    fromDate: string,
+    toDate: string,
+  ): Promise<WorkoutCompleted[]> {
+    const rows = await this.findByUserAndDateRange(userId, fromDate, toDate);
+    return rows.map(rowToWorkoutCompleted);
+  }
+}
+
+function sentinelWorkoutCodeForDiscipline(d: Discipline): WorkoutCode {
+  if (d === 'bike') return 'B/AE1';
+  if (d === 'run') return 'C/AE1';
+  return 'D/AE1'; // swim
+}
+
+/**
+ * Convert a DB row into the canonical `WorkoutCompleted` shape.
+ * Strava-ingested rows have `workoutCode=null`; we substitute a discipline-
+ * specific sentinel so the strict `WorkoutCode` union holds. Downstream Pass 3
+ * postprocess discards these as non-plan-matches.
+ */
+export function rowToWorkoutCompleted(row: WorkoutsCompletedRow): WorkoutCompleted {
+  return {
+    date: row.date,
+    workoutCode:
+      (row.workoutCode as WorkoutCode | null) ??
+      sentinelWorkoutCodeForDiscipline(row.discipline as Discipline),
+    actualTss: row.actualTss !== null ? Number(row.actualTss) : undefined,
+    tssStatus: (row.tssStatus as 'computed' | 'pending_inference' | undefined) ?? undefined,
+    perceivedExertion: row.perceivedExertion ?? undefined,
+    notes: row.notes ?? undefined,
+    discipline: row.discipline as Discipline,
+    actualDurationSeconds: row.actualDurationSeconds ?? undefined,
+  };
 }

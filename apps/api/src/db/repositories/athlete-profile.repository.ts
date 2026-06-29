@@ -74,6 +74,19 @@ export class AthleteProfileRepository {
     if (!row) return null;
     return parseProfile(row.data, `athlete_profiles.userId=${userId}`);
   }
+
+  async findLatestRecordForUser(userId: string): Promise<AthleteProfileRecord | null> {
+    const rows = await this.db
+      .select()
+      .from(athleteProfiles)
+      .where(eq(athleteProfiles.userId, userId))
+      .orderBy(desc(athleteProfiles.generatedAt))
+      .limit(1);
+
+    const row = rows[0];
+    if (!row) return null;
+    return rowToRecord(row);
+  }
 }
 
 /**

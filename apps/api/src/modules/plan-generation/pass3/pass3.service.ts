@@ -4,6 +4,7 @@ import type { ConfigService } from '@nestjs/config';
 import { adaptationSuggestionSchema, type AdaptationSuggestion } from '@eta/shared-types';
 import type { ZodIssue } from 'zod';
 import type { Env } from '../../../config/env.schema.js';
+import type { AdaptationsRepository } from '../../../db/repositories/adaptations.repository.js';
 import type { KnowledgeBaseLoader } from '../knowledge-base.loader.js';
 import { applyHardRules, loadHardRulesConfig, type HardRulesConfig } from './hard-rules.js';
 import { buildPass3KbSlice, computePass3Inputs } from './pass3-context-builder.js';
@@ -50,6 +51,8 @@ export interface GenerateAdaptationResult {
     cacheReadInputTokens: number;
   };
   durationMs: number;
+  /** UUID of persisted adaptation_suggestions row, or 'dry-run' when dryRun=true. */
+  adaptationId: string;
 }
 
 export type AnthropicLike = Pick<Anthropic, 'beta'>;
@@ -69,6 +72,7 @@ export class Pass3GenerationService {
   constructor(
     private readonly config: ConfigService<Env, true>,
     private readonly kbLoader: KnowledgeBaseLoader,
+    private readonly adaptationsRepo: AdaptationsRepository,
     anthropicFactory: AnthropicFactory = defaultAnthropicFactory,
   ) {
     const apiKey = this.config.get('ANTHROPIC_API_KEY', { infer: true });
@@ -207,6 +211,24 @@ export class Pass3GenerationService {
 
     const appliedSources = extractAppliedSources(suggestion);
 
+    let adaptationId: string;
+    if (input.dryRun === true) {
+      adaptationId = 'dry-run';
+      this.logger.log(
+        `Skipping persistence (dryRun=true). Hard-rule firings=${hardRuleOutput.forcedAdjustments.length}, suggestion adjustments=${suggestion.adjustments.length}.`,
+      );
+    } else {
+      const record = await this.adaptationsRepo.create({
+        macroPlanId: input.macroPlanId,
+        forWeekStart: input.forWeekStart,
+        suggestion,
+      });
+      adaptationId = record.id;
+      this.logger.log(
+        `Persisted adaptation ${record.id} for macroPlan ${input.macroPlanId} week starting ${input.forWeekStart}.`,
+      );
+    }
+
     return {
       output: {
         suggestion,
@@ -218,6 +240,7 @@ export class Pass3GenerationService {
       rawResponse,
       usage,
       durationMs,
+      adaptationId,
     };
   }
 }

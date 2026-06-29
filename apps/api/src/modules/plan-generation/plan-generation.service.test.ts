@@ -3,6 +3,10 @@ import type { ConfigService } from '@nestjs/config';
 import type { AthleteProfile, MacroPlan } from '@eta/shared-types';
 import { describe, expect, it, vi } from 'vitest';
 import type { Env } from '../../config/env.schema.js';
+import type {
+  MacroPlanRecord,
+  MacroPlansRepository,
+} from '../../db/repositories/macro-plans.repository.js';
 import type { KnowledgeBase, KnowledgeBaseLoader } from './knowledge-base.loader.js';
 import {
   type AnthropicLike,
@@ -35,6 +39,30 @@ function makeKbLoader(): KnowledgeBaseLoader {
     loadedFrom: '/tmp/kb',
   };
   return { get: () => kb } as unknown as KnowledgeBaseLoader;
+}
+
+const USER_ID = '00000000-0000-0000-0000-000000000001';
+
+function makeMacroRepo(): {
+  repo: MacroPlansRepository;
+  createSpy: ReturnType<typeof vi.fn>;
+} {
+  const createSpy = vi.fn(
+    async (input: {
+      userId: string;
+      athleteProfileId: string;
+      plan: unknown;
+    }): Promise<MacroPlanRecord> => ({
+      id: 'macro-plan-id-1',
+      userId: input.userId,
+      athleteProfileId: input.athleteProfileId,
+      plan: input.plan as never,
+      generatedAt: new Date('2026-06-17T12:00:00Z'),
+      updatedAt: new Date('2026-06-17T12:00:00Z'),
+    }),
+  );
+  const repo = { create: createSpy } as unknown as MacroPlansRepository;
+  return { repo, createSpy };
 }
 
 const FUTURE_RACE_DATE = new Date(Date.now() + 105 * 24 * 60 * 60 * 1000); // ~15 weeks
@@ -152,9 +180,15 @@ describe('PlanGenerationService', () => {
   it('returns a parsed MacroPlan when the LLM emits valid JSON', async () => {
     const plan = buildValidPlan('test-profile-1', FUTURE_RACE_ISO);
     const client = fakeAnthropic(JSON.stringify(plan));
-    const service = new PlanGenerationService(makeConfig(), makeKbLoader(), () => client);
+    const { repo: macroRepo } = makeMacroRepo();
+    const service = new PlanGenerationService(
+      makeConfig(),
+      makeKbLoader(),
+      macroRepo,
+      () => client,
+    );
 
-    const result = await service.generateMacroPlan(validProfile(), 'test-profile-1');
+    const result = await service.generateMacroPlan(validProfile(), 'test-profile-1', USER_ID);
 
     expect(result.plan.athleteProfileId).toBe('test-profile-1');
     expect(result.plan.totalWeeks).toBe(3);
@@ -165,9 +199,15 @@ describe('PlanGenerationService', () => {
 
   it('throws PlanGenerationError with raw response when LLM emits invalid JSON', async () => {
     const client = fakeAnthropic('not json at all');
-    const service = new PlanGenerationService(makeConfig(), makeKbLoader(), () => client);
+    const { repo: macroRepo } = makeMacroRepo();
+    const service = new PlanGenerationService(
+      makeConfig(),
+      makeKbLoader(),
+      macroRepo,
+      () => client,
+    );
 
-    await expect(service.generateMacroPlan(validProfile(), 'pid')).rejects.toMatchObject({
+    await expect(service.generateMacroPlan(validProfile(), 'pid', USER_ID)).rejects.toMatchObject({
       name: 'PlanGenerationError',
       message: expect.stringContaining('not valid JSON'),
       rawResponse: 'not json at all',
@@ -177,10 +217,16 @@ describe('PlanGenerationService', () => {
   it('throws PlanGenerationError with validation issues when schema rejects the plan', async () => {
     const badPlan = { athleteProfileId: '', raceDate: 'not-a-date', weeks: [], totalWeeks: 0 };
     const client = fakeAnthropic(JSON.stringify(badPlan));
-    const service = new PlanGenerationService(makeConfig(), makeKbLoader(), () => client);
+    const { repo: macroRepo } = makeMacroRepo();
+    const service = new PlanGenerationService(
+      makeConfig(),
+      makeKbLoader(),
+      macroRepo,
+      () => client,
+    );
 
     try {
-      await service.generateMacroPlan(validProfile(), 'pid');
+      await service.generateMacroPlan(validProfile(), 'pid', USER_ID);
       expect.fail('should have thrown');
     } catch (err) {
       expect(err).toBeInstanceOf(PlanGenerationError);
@@ -193,13 +239,19 @@ describe('PlanGenerationService', () => {
 
   it('rejects an AthleteProfile that fails input schema (raceDate in the past)', async () => {
     const client = fakeAnthropic('{}');
-    const service = new PlanGenerationService(makeConfig(), makeKbLoader(), () => client);
+    const { repo: macroRepo } = makeMacroRepo();
+    const service = new PlanGenerationService(
+      makeConfig(),
+      makeKbLoader(),
+      macroRepo,
+      () => client,
+    );
 
     const profile = validProfile();
     profile.raceDate = new Date('2020-01-01');
     profile.weeksUntilRace = -1000;
 
-    await expect(service.generateMacroPlan(profile, 'pid')).rejects.toThrow(
+    await expect(service.generateMacroPlan(profile, 'pid', USER_ID)).rejects.toThrow(
       /AthleteProfile failed input validation/,
     );
   });
@@ -214,9 +266,15 @@ describe('PlanGenerationService', () => {
         },
       },
     } as unknown as AnthropicLike;
-    const service = new PlanGenerationService(makeConfig(), makeKbLoader(), () => failingClient);
+    const { repo: macroRepo } = makeMacroRepo();
+    const service = new PlanGenerationService(
+      makeConfig(),
+      makeKbLoader(),
+      macroRepo,
+      () => failingClient,
+    );
 
-    await expect(service.generateMacroPlan(validProfile(), 'pid')).rejects.toMatchObject({
+    await expect(service.generateMacroPlan(validProfile(), 'pid', USER_ID)).rejects.toMatchObject({
       name: 'PlanGenerationError',
       message: expect.stringContaining('upstream timeout'),
     });
@@ -227,10 +285,16 @@ describe('PlanGenerationService', () => {
     // Move the long ride to Saturday (profile only allows fri+sun).
     plan.weeks[0]!.keySessions[0]!.dayOfWeek = 'sat';
     const client = fakeAnthropic(JSON.stringify(plan));
-    const service = new PlanGenerationService(makeConfig(), makeKbLoader(), () => client);
+    const { repo: macroRepo } = makeMacroRepo();
+    const service = new PlanGenerationService(
+      makeConfig(),
+      makeKbLoader(),
+      macroRepo,
+      () => client,
+    );
 
     try {
-      await service.generateMacroPlan(validProfile(), 'pid');
+      await service.generateMacroPlan(validProfile(), 'pid', USER_ID);
       expect.fail('should have thrown');
     } catch (err) {
       expect(err).toBeInstanceOf(PlanGenerationError);
@@ -240,6 +304,28 @@ describe('PlanGenerationService', () => {
       expect(e.violations![0]).toMatch(/long session on sat/);
       expect(e.rawResponse).toBeDefined();
     }
+  });
+
+  it('persists the macro plan after successful generation', async () => {
+    const plan = buildValidPlan('test-profile-1', FUTURE_RACE_ISO);
+    const client = fakeAnthropic(JSON.stringify(plan));
+    const { repo: macroRepo, createSpy } = makeMacroRepo();
+    const service = new PlanGenerationService(
+      makeConfig(),
+      makeKbLoader(),
+      macroRepo,
+      () => client,
+    );
+
+    const result = await service.generateMacroPlan(validProfile(), 'test-profile-1', USER_ID);
+
+    expect(createSpy).toHaveBeenCalledTimes(1);
+    expect(createSpy).toHaveBeenCalledWith({
+      userId: USER_ID,
+      athleteProfileId: 'test-profile-1',
+      plan: result.plan,
+    });
+    expect(result.macroPlanId).toBe('macro-plan-id-1');
   });
 });
 

@@ -17,6 +17,7 @@ export interface KbSlice {
 }
 
 export interface Pass2Input {
+  macroPlanId: string;
   macroPlan: MacroPlan;
   targetWeekIndex: number;
   athleteProfile: AthleteProfile;
