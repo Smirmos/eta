@@ -737,8 +737,8 @@ import { WeekCard } from './WeekCard.js';
 test('renders workouts when a detail exists', () => {
   const week = makePlanTreeFixture().weeks[0]!;
   render(<WeekCard week={week} isCurrent={true} />);
-  expect(screen.getByText('B-E2')).toBeInTheDocument();
-  expect(screen.getByText(/aerobic base/)).toBeInTheDocument();
+  expect(screen.getByText('B/AE2')).toBeInTheDocument();
+  expect(screen.getByText(/aerobic base/i)).toBeInTheDocument();
 });
 
 test('renders a placeholder when no detail exists', () => {
@@ -921,7 +921,7 @@ const ok = (): Promise<FetchResult> =>
 test('renders the plan on success', async () => {
   render(<App fetchTree={ok} />);
   await waitFor(() => expect(screen.getByText('2026-07-13')).toBeInTheDocument());
-  expect(screen.getByText('B-E2')).toBeInTheDocument();
+  expect(screen.getByText('B/AE2')).toBeInTheDocument();
 });
 
 test('shows the empty state on 404', async () => {
