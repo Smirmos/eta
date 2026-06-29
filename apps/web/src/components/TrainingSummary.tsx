@@ -27,12 +27,12 @@ export function TrainingSummary({
         ) : null}
       </header>
 
-      <div className="stat-strip">
+      <dl className="stat-strip">
         <div><dt>Hours</dt><dd>{overall.totalHours}</dd></div>
         <div><dt>Sessions</dt><dd>{overall.totalSessions}</dd></div>
         <div><dt>Days/week</dt><dd>{overall.avgTrainingDaysPerWeek}</dd></div>
         <div><dt>Trend</dt><dd><span className={`trend trend-${trend}`}>{trend}</span></dd></div>
-      </div>
+      </dl>
 
       <div className="sport-split">
         {overall.sportSplit.map((s) => (
@@ -59,7 +59,7 @@ export function TrainingSummary({
         <h2>Longest sessions</h2>
         <ul>
           {longestSessions.map((l) => (
-            <li key={l.discipline}>
+            <li key={`${l.discipline}-${l.date}`}>
               <span className="disc">{l.discipline}</span> {l.minutes} min <span className="date">({l.date})</span>
             </li>
           ))}
