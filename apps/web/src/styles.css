@@ -1,0 +1,838 @@
+/* ============================================================================
+   ETA — Training Plan viewer
+   Aesthetic: dark "instrument panel" — race-timing scoreboard meets coach's
+   data console. Deep ink, a single electric "volt" accent, mono data readouts.
+   Type: Bebas Neue (display) · IBM Plex Sans (body) · IBM Plex Mono (data).
+   Purely presentational — styles the existing component class hooks.
+   ========================================================================== */
+
+:root {
+  /* Ink / surfaces */
+  --ink-900: #0a0d11;
+  --ink-850: #0d1116;
+  --ink-800: #12171e;
+  --ink-750: #161d25;
+  --line: #222b35;
+  --line-2: #2f3a46;
+
+  /* Text */
+  --text: #e8ebef;
+  --text-2: #a4adb8;
+  --text-3: #6c7682;
+
+  /* Signal */
+  --volt: #ccff33;
+  --volt-ink: #16210a;
+  --volt-glow: rgba(204, 255, 51, 0.16);
+
+  /* Semantic accents */
+  --cyan: #46d6c6;
+  --amber: #f5b740;
+  --red: #ff6f60;
+  --green: #5fd08a;
+
+  --font-display: 'Bebas Neue', 'IBM Plex Sans', sans-serif;
+  --font-body: 'IBM Plex Sans', system-ui, -apple-system, sans-serif;
+  --font-mono: 'IBM Plex Mono', ui-monospace, SFMono-Regular, monospace;
+
+  --radius: 12px;
+  --radius-sm: 8px;
+}
+
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+}
+
+html {
+  scroll-behavior: smooth;
+}
+
+body {
+  margin: 0;
+  min-height: 100vh;
+  font-family: var(--font-body);
+  font-size: 15px;
+  line-height: 1.55;
+  color: var(--text);
+  background-color: var(--ink-900);
+  background-image:
+    radial-gradient(900px 600px at 88% -8%, rgba(204, 255, 51, 0.07), transparent 60%),
+    radial-gradient(800px 700px at -5% 4%, rgba(70, 214, 198, 0.06), transparent 55%);
+  background-attachment: fixed;
+  -webkit-font-smoothing: antialiased;
+  text-rendering: optimizeLegibility;
+}
+
+/* Faint technical grid overlay */
+body::before {
+  content: '';
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+  z-index: 0;
+  background-image:
+    linear-gradient(var(--line) 1px, transparent 1px),
+    linear-gradient(90deg, var(--line) 1px, transparent 1px);
+  background-size: 48px 48px;
+  opacity: 0.16;
+  mask-image: radial-gradient(circle at 50% 30%, #000 0%, transparent 78%);
+  -webkit-mask-image: radial-gradient(circle at 50% 30%, #000 0%, transparent 78%);
+}
+
+code {
+  font-family: var(--font-mono);
+  font-size: 0.92em;
+}
+
+::selection {
+  background: var(--volt);
+  color: var(--volt-ink);
+}
+
+:focus-visible {
+  outline: 2px solid var(--volt);
+  outline-offset: 2px;
+  border-radius: 3px;
+}
+
+/* ── App grid ──────────────────────────────────────────────────────────── */
+
+.app {
+  position: relative;
+  z-index: 1;
+  max-width: 1200px;
+  margin: 0 auto;
+  padding: 40px 28px 96px;
+  display: grid;
+  grid-template-columns: 256px minmax(0, 1fr);
+  grid-template-areas:
+    'toolbar toolbar'
+    'header  header'
+    'adapt   adapt'
+    'nav     weeks';
+  column-gap: 36px;
+  row-gap: 30px;
+  align-items: start;
+}
+
+.toolbar {
+  grid-area: toolbar;
+  display: flex;
+  justify-content: flex-end;
+}
+
+/* ── Buttons ───────────────────────────────────────────────────────────── */
+
+button {
+  font-family: var(--font-mono);
+  font-size: 12px;
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--volt);
+  background: transparent;
+  border: 1px solid var(--line-2);
+  border-radius: 999px;
+  padding: 9px 20px;
+  cursor: pointer;
+  transition:
+    background 0.18s ease,
+    color 0.18s ease,
+    border-color 0.18s ease,
+    transform 0.12s ease;
+}
+
+button:hover {
+  background: var(--volt);
+  color: var(--volt-ink);
+  border-color: var(--volt);
+}
+
+button:active {
+  transform: translateY(1px);
+}
+
+/* ── Plan header ───────────────────────────────────────────────────────── */
+
+.plan-header {
+  grid-area: header;
+  border-bottom: 1px solid var(--line);
+  padding-bottom: 26px;
+  animation: rise 0.6s 0.02s both;
+}
+
+.plan-header::before {
+  content: '▲ ETA · ENDURANCE TRAINING ASSISTANT';
+  display: block;
+  font-family: var(--font-mono);
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.28em;
+  color: var(--volt);
+  margin-bottom: 10px;
+}
+
+.plan-header h1 {
+  font-family: var(--font-display);
+  font-weight: 400;
+  font-size: clamp(48px, 9vw, 92px);
+  line-height: 0.92;
+  letter-spacing: 0.01em;
+  margin: 0 0 22px;
+  text-transform: uppercase;
+}
+
+.plan-meta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 14px;
+  margin: 0;
+}
+
+.plan-meta > div {
+  flex: 1 1 130px;
+  min-width: 120px;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding: 14px 16px;
+  background: var(--ink-800);
+  border: 1px solid var(--line);
+  border-radius: var(--radius-sm);
+}
+
+.plan-meta dt {
+  font-family: var(--font-mono);
+  font-size: 10px;
+  font-weight: 600;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  color: var(--text-3);
+  margin: 0;
+}
+
+.plan-meta dd {
+  margin: 0;
+  font-family: var(--font-mono);
+  font-size: 20px;
+  font-weight: 500;
+  font-variant-numeric: tabular-nums;
+  color: var(--text);
+  word-break: break-word;
+}
+
+.plan-meta dd code {
+  font-size: 12px;
+  color: var(--text-2);
+}
+
+/* ── Adaptation card (the signal panel) ────────────────────────────────── */
+
+.adaptation-card {
+  grid-area: adapt;
+  position: relative;
+  background:
+    linear-gradient(180deg, rgba(204, 255, 51, 0.05), transparent 40%),
+    var(--ink-800);
+  border: 1px solid var(--line-2);
+  border-left: 3px solid var(--volt);
+  border-radius: var(--radius);
+  padding: 22px 24px;
+  box-shadow: 0 0 0 1px rgba(204, 255, 51, 0.04), 0 24px 60px -32px var(--volt-glow);
+  animation: rise 0.6s 0.08s both;
+}
+
+.adaptation-card h2 {
+  font-family: var(--font-display);
+  font-weight: 400;
+  font-size: 30px;
+  letter-spacing: 0.02em;
+  text-transform: uppercase;
+  margin: 0 0 4px;
+}
+
+.adaptation-card h2::before {
+  content: '◆ ';
+  color: var(--volt);
+  font-size: 0.6em;
+  vertical-align: middle;
+}
+
+.for-week {
+  font-family: var(--font-mono);
+  font-size: 12px;
+  letter-spacing: 0.04em;
+  color: var(--text-3);
+  margin: 0 0 14px;
+}
+
+.week-note {
+  margin: 0 0 16px;
+  padding: 10px 14px;
+  background: var(--volt-glow);
+  border-radius: var(--radius-sm);
+  color: var(--text);
+  font-size: 14px;
+}
+
+.adjustments {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  gap: 12px;
+}
+
+.adj {
+  background: var(--ink-750);
+  border: 1px solid var(--line);
+  border-radius: var(--radius-sm);
+  padding: 14px 16px;
+}
+
+.adj-head {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 10px;
+  margin-bottom: 8px;
+}
+
+.action {
+  font-family: var(--font-mono);
+  font-size: 10px;
+  font-weight: 600;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  padding: 3px 9px;
+  border-radius: 999px;
+  background: var(--line-2);
+  color: var(--text);
+}
+
+.a-keep .action {
+  background: rgba(95, 208, 138, 0.16);
+  color: var(--green);
+}
+.a-modify .action {
+  background: rgba(245, 183, 64, 0.16);
+  color: var(--amber);
+}
+.a-replace .action {
+  background: rgba(255, 111, 96, 0.16);
+  color: var(--red);
+}
+
+.adj-head code {
+  font-weight: 600;
+  color: var(--text);
+}
+
+.adj-head .date {
+  font-family: var(--font-mono);
+  font-size: 12px;
+  color: var(--text-3);
+  margin-left: auto;
+}
+
+.reasoning {
+  margin: 0 0 6px;
+  font-size: 14px;
+  color: var(--text);
+}
+
+.citation {
+  margin: 0;
+  font-family: var(--font-mono);
+  font-size: 11px;
+  color: var(--text-3);
+  word-break: break-word;
+}
+
+.citation::before {
+  content: 'ref ';
+  color: var(--line-2);
+}
+
+/* ── Week overview (sticky rail) ───────────────────────────────────────── */
+
+.week-overview {
+  grid-area: nav;
+  position: sticky;
+  top: 24px;
+  animation: rise 0.6s 0.12s both;
+}
+
+.week-overview h2 {
+  font-family: var(--font-mono);
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  color: var(--text-3);
+  margin: 0 0 12px;
+  padding-left: 4px;
+}
+
+.week-overview ul {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.week-overview a {
+  display: grid;
+  grid-template-columns: auto 1fr auto;
+  align-items: center;
+  gap: 8px;
+  padding: 9px 12px;
+  border: 1px solid transparent;
+  border-radius: var(--radius-sm);
+  text-decoration: none;
+  color: var(--text-2);
+  transition:
+    background 0.16s ease,
+    border-color 0.16s ease,
+    color 0.16s ease;
+}
+
+.week-overview a:hover {
+  background: var(--ink-800);
+  border-color: var(--line);
+  color: var(--text);
+}
+
+.week-overview li.current a,
+.week-overview a[aria-current='true'] {
+  background: var(--volt-glow);
+  border-color: rgba(204, 255, 51, 0.4);
+  color: var(--text);
+}
+
+.week-overview .wnum {
+  font-family: var(--font-mono);
+  font-size: 12px;
+  font-weight: 600;
+  letter-spacing: 0.03em;
+}
+
+.week-overview .phase {
+  font-size: 11px;
+  color: var(--text-3);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.week-overview .vol {
+  font-family: var(--font-mono);
+  font-size: 11px;
+  color: var(--text-2);
+  font-variant-numeric: tabular-nums;
+}
+
+/* ── Badges ────────────────────────────────────────────────────────────── */
+
+.badge {
+  font-family: var(--font-mono);
+  font-size: 9px;
+  font-weight: 600;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  padding: 2px 6px;
+  border-radius: 4px;
+  white-space: nowrap;
+}
+
+.badge.recovery {
+  background: rgba(70, 214, 198, 0.14);
+  color: var(--cyan);
+}
+
+.badge.detail {
+  background: rgba(204, 255, 51, 0.14);
+  color: var(--volt);
+}
+
+/* ── Weeks ─────────────────────────────────────────────────────────────── */
+
+.weeks {
+  grid-area: weeks;
+  display: flex;
+  flex-direction: column;
+  gap: 18px;
+}
+
+.week-card {
+  scroll-margin-top: 24px;
+  background: var(--ink-800);
+  border: 1px solid var(--line);
+  border-left: 3px solid var(--line-2);
+  border-radius: var(--radius);
+  padding: 18px 22px;
+  transition:
+    transform 0.16s ease,
+    border-color 0.16s ease;
+  animation: rise 0.5s both;
+}
+
+.week-card:hover {
+  transform: translateY(-2px);
+  border-color: var(--line-2);
+}
+
+.weeks .week-card:nth-child(1) {
+  animation-delay: 0.14s;
+}
+.weeks .week-card:nth-child(2) {
+  animation-delay: 0.18s;
+}
+.weeks .week-card:nth-child(3) {
+  animation-delay: 0.22s;
+}
+.weeks .week-card:nth-child(4) {
+  animation-delay: 0.26s;
+}
+.weeks .week-card:nth-child(n + 5) {
+  animation-delay: 0.3s;
+}
+
+.week-card.current {
+  border-left-color: var(--volt);
+  border-color: rgba(204, 255, 51, 0.28);
+  box-shadow: 0 0 0 1px rgba(204, 255, 51, 0.06), 0 0 50px -28px var(--volt-glow);
+  animation: rise 0.5s both, pulse 4.5s 1s ease-in-out infinite;
+}
+
+.week-head {
+  display: flex;
+  align-items: baseline;
+  flex-wrap: wrap;
+  gap: 12px;
+  padding-bottom: 14px;
+  margin-bottom: 14px;
+  border-bottom: 1px solid var(--line);
+}
+
+.week-head .wn {
+  font-family: var(--font-display);
+  font-weight: 400;
+  font-size: 32px;
+  line-height: 1;
+  letter-spacing: 0.02em;
+  text-transform: uppercase;
+  color: var(--text);
+}
+
+.week-card.current .week-head .wn {
+  color: var(--volt);
+}
+
+.week-head .wn::before {
+  content: '';
+}
+
+.week-card.current .week-head::after {
+  content: 'CURRENT';
+  font-family: var(--font-mono);
+  font-size: 9px;
+  font-weight: 600;
+  letter-spacing: 0.14em;
+  color: var(--volt-ink);
+  background: var(--volt);
+  padding: 3px 8px;
+  border-radius: 999px;
+  align-self: center;
+}
+
+.week-head .wstart {
+  font-family: var(--font-mono);
+  font-size: 13px;
+  color: var(--text-2);
+  font-variant-numeric: tabular-nums;
+}
+
+.week-head .phase {
+  font-family: var(--font-mono);
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--text-3);
+  padding: 2px 8px;
+  border: 1px solid var(--line);
+  border-radius: 4px;
+}
+
+.week-head .vol {
+  margin-left: auto;
+  font-family: var(--font-mono);
+  font-size: 14px;
+  color: var(--text);
+  font-variant-numeric: tabular-nums;
+}
+
+.placeholder {
+  margin: 0;
+  padding: 16px;
+  font-size: 13px;
+  color: var(--text-3);
+  font-style: italic;
+  text-align: center;
+  border: 1px dashed var(--line-2);
+  border-radius: var(--radius-sm);
+}
+
+/* ── Workouts ──────────────────────────────────────────────────────────── */
+
+.workouts {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.workout {
+  background: var(--ink-750);
+  border: 1px solid var(--line);
+  border-radius: var(--radius-sm);
+  padding: 13px 15px;
+  transition: border-color 0.16s ease;
+}
+
+.workout:hover {
+  border-color: var(--line-2);
+}
+
+.wkt-head {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 10px;
+  margin-bottom: 8px;
+}
+
+.wkt-head .code {
+  font-weight: 600;
+  color: var(--volt);
+  background: var(--volt-glow);
+  padding: 2px 8px;
+  border-radius: 4px;
+}
+
+.wkt-head .disc {
+  font-family: var(--font-mono);
+  font-size: 11px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--text-2);
+}
+
+.wkt-head .date {
+  font-family: var(--font-mono);
+  font-size: 12px;
+  color: var(--text-3);
+  font-variant-numeric: tabular-nums;
+}
+
+.wkt-head .dur {
+  margin-left: auto;
+  font-family: var(--font-mono);
+  font-size: 13px;
+  color: var(--text);
+  font-variant-numeric: tabular-nums;
+}
+
+.segments {
+  list-style: none;
+  margin: 0 0 10px;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+}
+
+.segment {
+  display: grid;
+  grid-template-columns: 1fr auto auto;
+  align-items: center;
+  gap: 12px;
+  padding: 5px 10px;
+  background: var(--ink-850);
+  border-radius: 6px;
+  font-size: 13px;
+}
+
+.seg-label {
+  color: var(--text-2);
+}
+
+.seg-dur {
+  font-family: var(--font-mono);
+  font-size: 12px;
+  color: var(--text-3);
+  font-variant-numeric: tabular-nums;
+}
+
+.seg-zone {
+  font-family: var(--font-mono);
+  font-size: 10px;
+  font-weight: 600;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--cyan);
+  background: rgba(70, 214, 198, 0.12);
+  padding: 2px 8px;
+  border-radius: 999px;
+}
+
+.workout .rationale {
+  margin: 0 0 4px;
+  font-size: 13px;
+  color: var(--text-2);
+}
+
+.workout .citation {
+  font-size: 10px;
+}
+
+/* ── Status states ─────────────────────────────────────────────────────── */
+
+.status {
+  font-family: var(--font-mono);
+  font-size: 14px;
+  max-width: 640px;
+  margin: 80px auto 18px;
+  padding: 22px 26px;
+  border-radius: var(--radius);
+  text-align: center;
+  line-height: 1.7;
+}
+
+.status code {
+  color: var(--volt);
+  background: var(--volt-glow);
+  padding: 1px 6px;
+  border-radius: 4px;
+}
+
+.status.loading {
+  color: var(--text-3);
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  animation: blink 1.4s ease-in-out infinite;
+}
+
+.status.empty {
+  color: var(--text-2);
+  background: var(--ink-800);
+  border: 1px solid var(--line);
+}
+
+.status.error {
+  color: var(--red);
+  background: rgba(255, 111, 96, 0.07);
+  border: 1px solid rgba(255, 111, 96, 0.3);
+}
+
+/* The Refresh/Retry button on status screens sits centered below the message */
+.status + button {
+  display: block;
+  margin: 0 auto;
+}
+
+/* ── Motion ────────────────────────────────────────────────────────────── */
+
+@keyframes rise {
+  from {
+    opacity: 0;
+    transform: translateY(14px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes pulse {
+  0%,
+  100% {
+    box-shadow: 0 0 0 1px rgba(204, 255, 51, 0.06), 0 0 50px -28px var(--volt-glow);
+  }
+  50% {
+    box-shadow: 0 0 0 1px rgba(204, 255, 51, 0.14), 0 0 60px -22px var(--volt-glow);
+  }
+}
+
+@keyframes blink {
+  0%,
+  100% {
+    opacity: 0.45;
+  }
+  50% {
+    opacity: 1;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  html {
+    scroll-behavior: auto;
+  }
+  *,
+  *::before,
+  *::after {
+    animation: none !important;
+    transition: none !important;
+  }
+}
+
+/* ── Responsive ────────────────────────────────────────────────────────── */
+
+@media (max-width: 980px) {
+  .app {
+    grid-template-columns: 1fr;
+    grid-template-areas:
+      'toolbar'
+      'header'
+      'adapt'
+      'nav'
+      'weeks';
+    row-gap: 24px;
+  }
+
+  .week-overview {
+    position: static;
+  }
+
+  .week-overview ul {
+    flex-direction: row;
+    overflow-x: auto;
+    gap: 8px;
+    padding-bottom: 6px;
+    scrollbar-width: thin;
+  }
+
+  .week-overview a {
+    flex: 0 0 auto;
+    grid-template-columns: auto;
+    grid-auto-flow: column;
+    white-space: nowrap;
+  }
+}
+
+@media (max-width: 560px) {
+  .app {
+    padding: 28px 18px 72px;
+  }
+  .week-head .vol {
+    margin-left: 0;
+  }
+  .wkt-head .dur {
+    margin-left: 0;
+  }
+}
