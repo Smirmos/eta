@@ -12,7 +12,13 @@ const weekBucketSchema = z.object({
   weekStart: z.string(),
   sessions: z.number(),
   hours: z.number(),
-  byDiscipline: z.record(disciplineSchema, z.object({ sessions: z.number(), hours: z.number() })),
+  byDiscipline: z
+    .object({
+      swim: z.object({ sessions: z.number(), hours: z.number() }),
+      bike: z.object({ sessions: z.number(), hours: z.number() }),
+      run: z.object({ sessions: z.number(), hours: z.number() }),
+    })
+    .partial(),
   bikeTss: z.number().nullable(),
 });
 

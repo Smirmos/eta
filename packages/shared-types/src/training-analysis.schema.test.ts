@@ -32,3 +32,11 @@ test('accepts a null narrative and null window', () => {
 test('rejects an invalid trend', () => {
   expect(trainingAnalysisResponseSchema.safeParse({ ...valid, trend: 'sideways' }).success).toBe(false);
 });
+
+test('accepts byDiscipline with only one discipline key (partial is allowed)', () => {
+  const partial = {
+    ...valid,
+    perWeek: [{ ...valid.perWeek[0], byDiscipline: { bike: { sessions: 2, hours: 3 } } }],
+  };
+  expect(trainingAnalysisResponseSchema.safeParse(partial).success).toBe(true);
+});
