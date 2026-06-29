@@ -464,12 +464,15 @@ import { render, screen } from '@testing-library/react';
 import { makePlanTreeFixture } from '../test/fixtures/plan-tree.fixture.js';
 import { PlanHeader } from './PlanHeader.js';
 
-test('shows race date and type', () => {
+test('shows race date and plan id', () => {
   render(<PlanHeader tree={makePlanTreeFixture()} />);
   expect(screen.getByText('2026-07-13')).toBeInTheDocument();
-  expect(screen.getByText(/full_ironman/)).toBeInTheDocument();
+  expect(screen.getByText('plan-1')).toBeInTheDocument();
 });
 ```
+
+Note: `MacroPlan` has no `raceType` field (it lives on `AthleteProfile`, which the
+`PlanTree` does not carry), so the header shows race date, week count, and plan ID only.
 
 - [ ] **Step 2: Run to verify it fails**
 
@@ -490,10 +493,6 @@ export function PlanHeader({ tree }: { tree: PlanTree }): JSX.Element {
         <div>
           <dt>Race date</dt>
           <dd>{macroPlan.raceDate}</dd>
-        </div>
-        <div>
-          <dt>Race type</dt>
-          <dd>{macroPlan.raceType}</dd>
         </div>
         <div>
           <dt>Weeks</dt>
@@ -526,7 +525,7 @@ import { AdaptationCard } from './AdaptationCard.js';
 test('renders adjustments with reasoning', () => {
   const { currentAdaptation } = makePlanTreeFixture();
   render(<AdaptationCard adaptation={currentAdaptation} />);
-  expect(screen.getByText(/reduce load/)).toBeInTheDocument();
+  expect(screen.getByText(/reduce load/i)).toBeInTheDocument();
   expect(screen.getByText('modify')).toBeInTheDocument();
 });
 
