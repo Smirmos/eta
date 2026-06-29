@@ -1,6 +1,6 @@
 import { Injectable } from '@nestjs/common';
 import type { Discipline, TrainingAnalysis, TrendDirection, WeekBucket } from '@eta/shared-types';
-import { WorkoutsCompletedRepository } from '../../db/repositories/workouts-completed.repository.js';
+import type { WorkoutsCompletedRepository } from '../../db/repositories/workouts-completed.repository.js';
 
 const DISCIPLINES: Discipline[] = ['swim', 'bike', 'run'];
 const round1 = (n: number): number => Math.round(n * 10) / 10;

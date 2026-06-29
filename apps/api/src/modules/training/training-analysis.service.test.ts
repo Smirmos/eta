@@ -1,4 +1,4 @@
-import { test, expect, vi } from 'vitest';
+import { test, expect } from 'vitest';
 import { TrainingAnalysisService } from './training-analysis.service.js';
 
 type Row = { date: string; discipline: string; actualDurationSeconds: number | null; actualTss: string | null };
