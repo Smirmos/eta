@@ -6,3 +6,5 @@ export * from './plan.schema.js';
 export * from './workout-codes.js';
 export * from './workout-completed.js';
 export * from './workout-completed.schema.js';
+export * from './training-analysis.js';
+export * from './training-analysis.schema.js';
