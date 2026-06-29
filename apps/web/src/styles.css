@@ -836,3 +836,43 @@ button:active {
     margin-left: 0;
   }
 }
+
+/* ── Training summary (Slice A) ────────────────────────────────────────── */
+.summary { display: flex; flex-direction: column; gap: 26px; }
+.summary-head .eyebrow {
+  font-family: var(--font-mono); font-size: 11px; letter-spacing: 0.22em;
+  text-transform: uppercase; color: var(--volt); margin: 0 0 8px;
+}
+.summary-head h1 {
+  font-family: var(--font-display); font-weight: 400; font-size: clamp(40px, 7vw, 72px);
+  line-height: 0.95; text-transform: uppercase; margin: 0;
+}
+.stale-note { color: var(--warn, #f5b740); font-size: 13px; margin: 10px 0 0; }
+
+.stat-strip { display: flex; flex-wrap: wrap; gap: 14px; }
+.stat-strip > div {
+  flex: 1 1 130px; display: flex; flex-direction: column; gap: 4px;
+  padding: 14px 16px; background: var(--ink-800); border: 1px solid var(--line); border-radius: 8px;
+}
+.stat-strip dt { font-family: var(--font-mono); font-size: 10px; letter-spacing: 0.16em; text-transform: uppercase; color: var(--text-3); }
+.stat-strip dd { margin: 0; font-family: var(--font-mono); font-size: 22px; color: var(--text); }
+.trend { font-family: var(--font-mono); font-size: 13px; text-transform: uppercase; letter-spacing: 0.08em; }
+.trend-building { color: var(--volt); }
+.trend-tapering { color: var(--cyan); }
+.trend-steady { color: var(--text-2); }
+
+.sport-split, .weeks-breakdown, .longest { background: var(--ink-800); border: 1px solid var(--line); border-radius: 12px; padding: 18px 20px; }
+.weeks-breakdown h2, .longest h2 { font-family: var(--font-display); font-weight: 400; font-size: 24px; text-transform: uppercase; margin: 0 0 12px; }
+.split-row, .wk-row { display: grid; grid-template-columns: 70px 1fr auto; align-items: center; gap: 12px; margin-bottom: 8px; }
+.split-row .disc, .wk-row .wk-start { font-family: var(--font-mono); font-size: 12px; color: var(--text-2); text-transform: uppercase; }
+.bar, .wk-bar { height: 10px; border-radius: 999px; background: var(--volt); min-width: 4px; }
+.disc-run .bar { background: var(--amber, #f5b740); }
+.disc-swim .bar { background: var(--cyan, #46d6c6); }
+.split-row .val, .wk-row .wk-val { font-family: var(--font-mono); font-size: 12px; color: var(--text-3); white-space: nowrap; }
+.longest ul { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 6px; }
+.longest li { font-size: 14px; }
+.longest .disc { font-family: var(--font-mono); text-transform: uppercase; color: var(--volt); font-size: 12px; }
+.longest .date { color: var(--text-3); }
+.narrative { font-size: 15px; line-height: 1.6; color: var(--text); background: var(--volt-glow); border-left: 3px solid var(--volt); border-radius: 8px; padding: 16px 18px; margin: 0; }
+.summary-empty { text-align: center; margin: 80px auto; max-width: 480px; color: var(--text-2); }
+.summary-empty h2 { font-family: var(--font-display); font-weight: 400; font-size: 32px; text-transform: uppercase; }
