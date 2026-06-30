@@ -6,6 +6,7 @@ skeleton for ONE upcoming training week and must fill in detailed workouts.
 
 Hard rules — output is rejected if any is broken:
 - Output ONLY a JSON object matching the WeeklyDetail schema. No prose, no markdown fences.
+  The first character of your output MUST be \`{\` and the last MUST be \`}\`.
 - weekNumber MUST be 1. weekStartDate and phase MUST equal the values given below.
 - One workout per non-rest day, on that day's ISO date. The rest day has NO workout.
 - Each workout has EXACTLY 3 segments: a warmup, a main set, and a cooldown. Express
@@ -13,7 +14,78 @@ Hard rules — output is rejected if any is broken:
 - Use ONLY workout codes that appear in the provided workouts reference.
 - Total weekly hours must be within ±10% of the target volume.
 - Honour the long-session days, the weekday duration cap, and the day roles.
-- Every workout needs a one-sentence coach rationale and a "knowledge-base/..." citation.`;
+- Every workout needs a one-sentence coach rationale and a "knowledge-base/..." citation.
+- Do NOT emit expectedTss, weeklyTotalTss, or weeklyTotalHours — those are computed in code.
+
+## OUTPUT SHAPE (exact field names required — validator rejects any deviation)
+
+Top-level object:
+  {
+    "weekNumber": 1,                          // number — MUST be 1
+    "weekStartDate": "YYYY-MM-DD",            // string — MUST equal the given weekStartDate
+    "phase": "<phase>",                       // string — MUST equal the given phase
+    "workouts": [ /* one object per non-rest day */ ]
+  }
+
+Each workout object inside "workouts":
+  {
+    "workoutCode": "B/AE1",                   // string — code from the WORKOUTS reference
+    "discipline": "swim",                     // "swim" | "bike" | "run"
+    "date": "YYYY-MM-DD",                     // ISO date of that day within the week
+    "totalDurationSeconds": 3600,             // integer > 0
+    "segments": [ /* EXACTLY 3 objects */ ],  // warmup, main set, cooldown in order
+    "rationale": "Coach-voice sentence.",     // non-empty string
+    "citation": "knowledge-base/03-workouts.md#b-ae1"  // must start with "knowledge-base/"
+  }
+
+Each segment object inside "segments" (exactly 3 per workout):
+  {
+    "label": "Warmup",           // non-empty string — use "Warmup", "Main set", "Cooldown"
+    "durationSeconds": 600,      // integer > 0
+    "zone": "z2",                // "z1"|"z2"|"z3"|"z4"|"z5a"|"z5b"|"z5c"|"mixed"|"easy"
+                                 // use "mixed" for an interval main set (work + recovery zones)
+    "description": "Easy aerobic warm-up."  // string — for main set, include rep/duration/zone details
+  }
+
+Constraint: the three segments' durationSeconds MUST sum to the workout's totalDurationSeconds (±60s).
+
+## CONCRETE EXAMPLE (study the structure — match exact field names)
+
+{
+  "weekNumber": 1,
+  "weekStartDate": "2026-07-07",
+  "phase": "build_1",
+  "workouts": [
+    {
+      "workoutCode": "C/ME1",
+      "discipline": "bike",
+      "date": "2026-07-08",
+      "totalDurationSeconds": 4500,
+      "segments": [
+        {
+          "label": "Warmup",
+          "durationSeconds": 900,
+          "zone": "z2",
+          "description": "15 min easy spin building from Z1 to Z2."
+        },
+        {
+          "label": "Main set",
+          "durationSeconds": 3000,
+          "zone": "mixed",
+          "description": "3×10min Z4 / 5min Z2 recovery between reps."
+        },
+        {
+          "label": "Cooldown",
+          "durationSeconds": 600,
+          "zone": "z1",
+          "description": "10 min easy spin to flush the legs."
+        }
+      ],
+      "rationale": "First threshold bike of the build phase — 3 reps to establish quality over quantity within the weekday cap.",
+      "citation": "knowledge-base/03-workouts.md#c-me1"
+    }
+  ]
+}`;
 
 const DISCIPLINE_BY_NEED = (analysis: TrainingAnalysis): string => {
   const sportSplit = (analysis.overall.sportSplit as Array<{ discipline: string; pctHours: number }>) || [];
