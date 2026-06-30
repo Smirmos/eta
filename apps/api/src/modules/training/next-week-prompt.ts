@@ -16,6 +16,9 @@ Hard rules — output is rejected if any is broken:
 - Honour the long-session days, the weekday duration cap, and the day roles.
 - Every workout needs a one-sentence coach rationale and a "knowledge-base/..." citation.
 - Do NOT emit expectedTss, weeklyTotalTss, or weeklyTotalHours — those are computed in code.
+- workoutCode prefix MUST match discipline: B/... = swim, C/... = bike, D/... = run.
+  A swim workout MUST use a B/... code; a bike workout MUST use a C/... code; a run workout
+  MUST use a D/... code. Any other pairing is INVALID and will be rejected.
 
 ## OUTPUT SHAPE (exact field names required — validator rejects any deviation)
 
