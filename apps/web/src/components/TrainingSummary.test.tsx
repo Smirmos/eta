@@ -4,8 +4,22 @@ import { TrainingSummary } from './TrainingSummary.js';
 
 test('renders headline stats and window', () => {
   render(<TrainingSummary analysis={makeAnalysisFixture()} />);
-  expect(screen.getByText(/40\.5/)).toBeInTheDocument(); // total hours
-  expect(screen.getByText(/2026-06-15/)).toBeInTheDocument(); // asOf
+  expect(screen.getAllByText(/40\.5/).length).toBeGreaterThan(0); // total hours
+  expect(screen.getAllByText(/2026-06-15/).length).toBeGreaterThan(0); // asOf
+});
+
+test('renders titled sport-balance and weekly panels', () => {
+  render(<TrainingSummary analysis={makeAnalysisFixture()} />);
+  expect(screen.getByText(/sport balance/i)).toBeInTheDocument();
+  expect(screen.getByText(/weekly volume/i)).toBeInTheDocument();
+});
+
+test('surfaces strengths and watch-outs derived from the analysis', () => {
+  render(<TrainingSummary analysis={makeAnalysisFixture()} />);
+  expect(screen.getByText(/watch-outs/i)).toBeInTheDocument();
+  expect(screen.getByText(/strengths/i)).toBeInTheDocument();
+  // fixture: swim is 11% of volume → flagged as light
+  expect(screen.getByText(/swim is light/i)).toBeInTheDocument();
 });
 
 test('renders the narrative when present', () => {

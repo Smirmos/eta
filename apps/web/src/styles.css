@@ -827,8 +827,11 @@ button:active {
   }
 }
 
-/* ── Training summary (Slice A) ────────────────────────────────────────── */
-.summary { display: flex; flex-direction: column; gap: 26px; }
+/* ── Training summary ──────────────────────────────────────────────────── */
+.summary { display: flex; flex-direction: column; gap: 22px; }
+
+/* Header */
+.summary-head { animation: rise 0.5s 0.02s both; }
 .summary-head .eyebrow {
   font-family: var(--font-mono); font-size: 11px; letter-spacing: 0.22em;
   text-transform: uppercase; color: var(--volt); margin: 0 0 8px;
@@ -837,32 +840,110 @@ button:active {
   font-family: var(--font-display); font-weight: 400; font-size: clamp(40px, 7vw, 72px);
   line-height: 0.95; text-transform: uppercase; margin: 0;
 }
-.stale-note { color: var(--warn, #f5b740); font-size: 13px; margin: 10px 0 0; }
+.window-line {
+  display: flex; align-items: center; flex-wrap: wrap; gap: 8px; margin: 10px 0 0;
+  font-family: var(--font-mono); font-size: 13px; font-variant-numeric: tabular-nums;
+}
+.window-line .rng { color: var(--text); }
+.window-line .arr { color: var(--text-3); }
+.window-line .window-tag {
+  font-size: 10px; letter-spacing: 0.1em; text-transform: uppercase; color: var(--text-3);
+  border: 1px solid var(--line); border-radius: 999px; padding: 2px 9px; margin-left: 4px;
+}
+.stale-note {
+  margin: 14px 0 0; padding: 11px 15px; font-size: 13px; line-height: 1.5;
+  color: var(--amber); background: rgba(245, 183, 64, 0.08);
+  border: 1px solid rgba(245, 183, 64, 0.3); border-left: 3px solid var(--amber);
+  border-radius: var(--radius-sm);
+}
+.stale-note strong { color: var(--text); }
 
-.stat-strip { display: flex; flex-wrap: wrap; gap: 14px; }
+/* KPI strip */
+.stat-strip { display: flex; flex-wrap: wrap; gap: 12px; animation: rise 0.5s 0.06s both; }
 .stat-strip > div {
-  flex: 1 1 130px; display: flex; flex-direction: column; gap: 4px;
-  padding: 14px 16px; background: var(--ink-800); border: 1px solid var(--line); border-radius: 8px;
+  flex: 1 1 140px; display: flex; flex-direction: column; gap: 5px;
+  padding: 15px 17px; background: var(--ink-800); border: 1px solid var(--line); border-radius: var(--radius-sm);
 }
 .stat-strip dt { font-family: var(--font-mono); font-size: 10px; letter-spacing: 0.16em; text-transform: uppercase; color: var(--text-3); }
-.stat-strip dd { margin: 0; font-family: var(--font-mono); font-size: 22px; color: var(--text); }
-.trend { font-family: var(--font-mono); font-size: 13px; text-transform: uppercase; letter-spacing: 0.08em; }
+.stat-strip dd { margin: 0; font-family: var(--font-mono); font-size: 26px; font-variant-numeric: tabular-nums; color: var(--text); display: flex; align-items: baseline; gap: 6px; }
+.stat-strip dd .unit { font-size: 12px; color: var(--text-3); letter-spacing: 0.02em; }
+.trend { font-family: var(--font-mono); font-size: 18px; letter-spacing: 0.02em; }
 .trend-building { color: var(--volt); }
-.trend-tapering { color: var(--cyan); }
+.trend-tapering { color: var(--amber); }
 .trend-steady { color: var(--text-2); }
 
-.sport-split, .weeks-breakdown, .longest { background: var(--ink-800); border: 1px solid var(--line); border-radius: 12px; padding: 18px 20px; }
-.weeks-breakdown h2, .longest h2 { font-family: var(--font-display); font-weight: 400; font-size: 24px; text-transform: uppercase; margin: 0 0 12px; }
-.split-row, .wk-row { display: grid; grid-template-columns: 70px 1fr auto; align-items: center; gap: 12px; margin-bottom: 8px; }
-.split-row .disc, .wk-row .wk-start { font-family: var(--font-mono); font-size: 12px; color: var(--text-2); text-transform: uppercase; }
-.bar, .wk-bar { height: 10px; border-radius: 999px; background: var(--volt); min-width: 4px; }
-.disc-run .bar { background: var(--amber, #f5b740); }
-.disc-swim .bar { background: var(--cyan, #46d6c6); }
-.split-row .val, .wk-row .wk-val { font-family: var(--font-mono); font-size: 12px; color: var(--text-3); white-space: nowrap; }
-.longest ul { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 6px; }
-.longest li { font-size: 14px; }
-.longest .disc { font-family: var(--font-mono); text-transform: uppercase; color: var(--volt); font-size: 12px; }
-.longest .date { color: var(--text-3); }
-.narrative { font-size: 15px; line-height: 1.6; color: var(--text); background: var(--volt-glow); border-left: 3px solid var(--volt); border-radius: 8px; padding: 16px 18px; margin: 0; }
+/* Strengths / watch-outs */
+.insights { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; animation: rise 0.5s 0.1s both; }
+.insight-col {
+  background: var(--ink-800); border: 1px solid var(--line); border-radius: var(--radius);
+  padding: 16px 18px;
+}
+.insight-h {
+  display: flex; align-items: center; gap: 8px; margin: 0 0 12px;
+  font-family: var(--font-mono); font-size: 11px; font-weight: 600; letter-spacing: 0.16em;
+  text-transform: uppercase; color: var(--text-2);
+}
+.insight-h .count {
+  font-size: 10px; line-height: 1; padding: 3px 7px; border-radius: 999px;
+  background: var(--line-2); color: var(--text);
+}
+.watch-col .insight-h { color: var(--amber); }
+.watch-col .insight-h .count { background: rgba(245, 183, 64, 0.18); color: var(--amber); }
+.strength-col .insight-h { color: var(--green); }
+.strength-col .insight-h .count { background: rgba(95, 208, 138, 0.18); color: var(--green); }
+.insight-col ul { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 8px; }
+.insight {
+  display: flex; flex-direction: column; gap: 3px;
+  padding: 10px 12px 10px 14px; border-radius: var(--radius-sm);
+  background: var(--ink-750); border: 1px solid var(--line); border-left: 3px solid var(--line-2);
+}
+.insight.watch { border-left-color: var(--amber); }
+.insight.strength { border-left-color: var(--green); }
+.insight .i-label { font-size: 13px; font-weight: 600; color: var(--text); }
+.insight .i-detail { font-size: 12.5px; line-height: 1.45; color: var(--text-2); }
+.insight-none { margin: 0; font-size: 13px; color: var(--text-3); font-style: italic; }
+
+/* Generic data panel */
+.panel { background: var(--ink-800); border: 1px solid var(--line); border-radius: var(--radius); padding: 18px 20px; animation: rise 0.5s 0.14s both; }
+.panel-head { margin: 0 0 14px; }
+.panel-head h2 { font-family: var(--font-display); font-weight: 400; font-size: 24px; text-transform: uppercase; letter-spacing: 0.02em; margin: 0; }
+.panel-sub { margin: 2px 0 0; font-family: var(--font-mono); font-size: 11px; letter-spacing: 0.04em; color: var(--text-3); }
+
+/* Bar rows shared by sport balance / weekly / longest */
+.split-row, .wk-row, .longest li {
+  display: grid; grid-template-columns: 78px 1fr auto; align-items: center; gap: 14px;
+  padding: 7px 0; border-top: 1px solid var(--line);
+}
+.split-row:first-of-type, .wk-row:first-of-type, .longest li:first-of-type { border-top: none; }
+.split-row .disc, .wk-row .wk-start, .longest .disc {
+  font-family: var(--font-mono); font-size: 12px; color: var(--text-2);
+  text-transform: uppercase; letter-spacing: 0.04em;
+}
+.track { background: var(--ink-850); border-radius: 999px; overflow: hidden; height: 10px; }
+.bar, .wk-bar { display: block; height: 100%; border-radius: 999px; background: var(--volt); min-width: 3px; }
+.disc-run .bar { background: var(--amber); }
+.disc-swim .bar { background: var(--cyan); }
+.split-row .val, .wk-row .wk-val, .longest .val {
+  font-family: var(--font-mono); font-size: 12px; color: var(--text-2);
+  white-space: nowrap; font-variant-numeric: tabular-nums;
+}
+.longest .val .date { color: var(--text-3); margin-left: 4px; }
+
+/* Emphasis: weakest discipline (label only — bar keeps its discipline colour) */
+.split-row.is-weak .disc { color: var(--amber); }
+.wk-row.is-latest .wk-start { color: var(--volt); }
+.wk-row.is-latest .wk-bar { box-shadow: 0 0 14px -2px var(--volt-glow); }
+.wk-row.is-latest .wk-val { color: var(--text); }
+
+.longest ul { list-style: none; margin: 0; padding: 0; }
+
+/* Coach's read */
+.narrative-panel { border-left: 3px solid var(--volt); }
+.narrative { font-size: 15px; line-height: 1.65; color: var(--text); margin: 0; }
+
 .summary-empty { text-align: center; margin: 80px auto; max-width: 480px; color: var(--text-2); }
 .summary-empty h2 { font-family: var(--font-display); font-weight: 400; font-size: 32px; text-transform: uppercase; }
+
+@media (max-width: 620px) {
+  .insights { grid-template-columns: 1fr; }
+}

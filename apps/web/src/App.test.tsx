@@ -8,7 +8,7 @@ const ok = (): Promise<AnalysisResult> => Promise.resolve({ status: 'ok', analys
 test('renders the training summary on success', async () => {
   render(<App fetchAnalysisImpl={ok} />);
   await waitFor(() => expect(screen.getByText('Training summary')).toBeInTheDocument());
-  expect(screen.getByText(/40\.5/)).toBeInTheDocument();
+  expect(screen.getAllByText(/40\.5/).length).toBeGreaterThan(0);
 });
 
 test('shows the error state with a retry button', async () => {
