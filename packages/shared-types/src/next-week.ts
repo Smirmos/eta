@@ -1,4 +1,5 @@
-import type { DayOfWeek, Discipline, Phase } from './athlete-profile.js';
+import type { DayOfWeek, Discipline } from './athlete-profile.js';
+import type { Phase } from './plan.js';
 import type { WeeklyDetail } from './plan.js';
 
 export type DayRole = 'rest' | 'long' | 'quality' | 'aerobic' | 'recovery';

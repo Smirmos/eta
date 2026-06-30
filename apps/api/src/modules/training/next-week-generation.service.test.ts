@@ -12,7 +12,7 @@ function profile(): AthleteProfile {
     trainingDaysPerWeek: 2, longSessionDays: ['sat'], mandatoryRestDays: [],
     maxWeekdaySessionMinutes: 360, plannedWeeklyHours: 10,
     disciplineDistribution: { swimPercent: 16, bikePercent: 59, runPercent: 25 },
-  } as AthleteProfile;
+  } as unknown as AthleteProfile;
 }
 function analysis(): TrainingAnalysis {
   return {

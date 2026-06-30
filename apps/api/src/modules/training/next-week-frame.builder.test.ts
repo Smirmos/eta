@@ -13,7 +13,7 @@ function profile(over: Partial<AthleteProfile> = {}): AthleteProfile {
     plannedWeeklyHours: 11,
     disciplineDistribution: { swimPercent: 16, bikePercent: 59, runPercent: 25 },
     ...(over as object),
-  } as AthleteProfile;
+  } as unknown as AthleteProfile;
 }
 
 function analysis(perWeekHours: number[], over: Partial<TrainingAnalysis> = {}): TrainingAnalysis {
@@ -79,10 +79,10 @@ describe('buildNextWeekFrame', () => {
   it('puts the rest day where there are no workouts and pins long days', () => {
     const f = buildNextWeekFrame(profile({ mandatoryRestDays: ['mon'] }), analysis([10, 10, 10, 10]), asOf);
     const byDay = Object.fromEntries(f.days.map((d) => [d.dayOfWeek, d]));
-    expect(byDay.mon.role).toBe('rest');
-    expect(byDay.mon.disciplines).toEqual([]);
-    expect(byDay.fri.role).toBe('long');
-    expect(byDay.sun.role).toBe('long');
+    expect(byDay.mon?.role).toBe('rest');
+    expect(byDay.mon?.disciplines).toEqual([]);
+    expect(byDay.fri?.role).toBe('long');
+    expect(byDay.sun?.role).toBe('long');
   });
 
   it('defaults the rest day to Monday when no mandatory rest day is set', () => {
