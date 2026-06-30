@@ -257,9 +257,11 @@ describe('buildNextWeekFrame', () => {
   });
 
   it('anchors volume on the last 3 weeks and applies the build ramp, capped at +10%', () => {
-    // race 2026-09-21 from week start 2026-07-06 ≈ 11 weeks → base_3 (+5%)
-    const f = buildNextWeekFrame(profile(), analysis([8, 10, 12, 14]), asOf);
-    expect(f.rationale.volumeAnchorHours).toBeCloseTo(12, 1); // mean of [10,12,14]
+    // race 2026-09-21 from week start 2026-07-06 ≈ 11 weeks → base_3 (+5%).
+    // perWeek is non-monotonic so the auto-ease (strictly-rising) path does NOT fire.
+    const f = buildNextWeekFrame(profile(), analysis([10, 12, 11, 13]), asOf);
+    expect(f.rationale.easeTriggered).toBe(false);
+    expect(f.rationale.volumeAnchorHours).toBeCloseTo(12, 1); // mean of [12,11,13]
     expect(f.phase).toBe('base_3');
     expect(f.rationale.rampPct).toBeCloseTo(0.05, 5);
     expect(f.targetVolumeHours).toBeCloseTo(12.6, 1);
