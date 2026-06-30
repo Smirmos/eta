@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useState } from 'react';
 import { fetchAnalysis, type AnalysisResult } from './api/analysis.js';
 import { TrainingSummary } from './components/TrainingSummary.js';
+import { NextWeekPlan } from './components/NextWeekPlan.js';
 
 type State = { kind: 'loading' } | { kind: 'done'; result: AnalysisResult };
 
@@ -48,6 +49,7 @@ export function App({
         </button>
       </div>
       <TrainingSummary analysis={result.analysis} />
+      <NextWeekPlan />
     </main>
   );
 }
