@@ -16,7 +16,12 @@ import { TrainingController } from './training.controller.js';
   providers: [
     WorkoutsCompletedRepository,
     AthleteProfileRepository,
-    KnowledgeBaseLoader,
+    {
+      provide: KnowledgeBaseLoader,
+      inject: [ConfigService],
+      useFactory: (config: ConfigService<Env, true>): KnowledgeBaseLoader =>
+        new KnowledgeBaseLoader(config),
+    },
     {
       provide: TrainingAnalysisService,
       inject: [WorkoutsCompletedRepository],
