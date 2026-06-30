@@ -25,7 +25,12 @@ function analysis(): TrainingAnalysis {
         { discipline: 'run', sessions: 2, hours: 2, pctHours: 25 },
       ],
     },
-    perWeek: [10, 10, 10, 10].map((h, i) => ({ weekStart: `2026-06-0${i + 1}`, sessions: 2, hours: h, byDiscipline: {}, bikeTss: null })),
+    perWeek: [
+      { weekStart: '2026-06-03', hours: 10 },
+      { weekStart: '2026-06-10', hours: 10 },
+      { weekStart: '2026-06-17', hours: 10 },
+      { weekStart: '2026-06-24', hours: 10 },
+    ].map((w) => ({ weekStart: w.weekStart, sessions: 2, hours: w.hours, byDiscipline: {}, bikeTss: null })),
     trend: 'steady', longestSessions: [], dataNote: { tssCoverage: 'bike_only', staleDays: 0 },
   } as TrainingAnalysis;
 }

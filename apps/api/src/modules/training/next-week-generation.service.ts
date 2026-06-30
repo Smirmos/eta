@@ -99,7 +99,7 @@ export class NextWeekGenerationService {
 
     const summary = computeWeeklySummary({ weeklyDetail, macroWeek });
     const annotated = annotateWithComputedFields({ weeklyDetail, summary });
-    this.logger.log(`Next-week generated: ${frame.phase}, ${summary.totalWeeklyHours}h, ${weeklyDetail.workouts.length} workouts.`);
+    this.logger.log(`Next-week generated: ${frame.phase}, ${summary.totalWeeklyHours}h, ${annotated.workouts.length} workouts.`);
     return { frame, weeklyDetail: annotated, appliedSources: extractAppliedSources(annotated) };
   }
 }
