@@ -4,7 +4,6 @@ import type {
 } from '@eta/shared-types';
 
 const ALL_DAYS: DayOfWeek[] = ['mon', 'tue', 'wed', 'thu', 'fri', 'sat', 'sun'];
-const DAY_INDEX: Record<DayOfWeek, number> = { mon: 0, tue: 1, wed: 2, thu: 3, fri: 4, sat: 5, sun: 6 };
 
 const PHASE_RAMP: Record<Phase, number> = {
   prep: 0, base_1: 0.05, base_2: 0.05, base_3: 0.05,
@@ -151,5 +150,3 @@ export function frameToMacroPlanWeek(frame: NextWeekFrame): MacroPlanWeek {
   };
 }
 
-// Suppress unused-variable lint warning for DAY_INDEX (used for potential future ordering).
-void DAY_INDEX;
