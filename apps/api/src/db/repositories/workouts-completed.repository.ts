@@ -1,5 +1,5 @@
 import { Inject, Injectable } from '@nestjs/common';
-import { and, eq, gte, lte } from 'drizzle-orm';
+import { and, desc, eq, gte, lte } from 'drizzle-orm';
 import type { Discipline, WorkoutCode, WorkoutCompleted } from '@eta/shared-types';
 import { DB, type Db } from '../db.module.js';
 import {
@@ -69,6 +69,17 @@ export class WorkoutsCompletedRepository {
           lte(workoutsCompleted.date, endDate),
         ),
       );
+  }
+
+  /** ISO date (YYYY-MM-DD) of the user's most recent activity, or null if none. */
+  async findLatestDateForUser(userId: string): Promise<string | null> {
+    const rows = await this.db
+      .select({ date: workoutsCompleted.date })
+      .from(workoutsCompleted)
+      .where(eq(workoutsCompleted.userId, userId))
+      .orderBy(desc(workoutsCompleted.date))
+      .limit(1);
+    return rows[0]?.date ?? null;
   }
 
   async findPendingByUserAndSource(userId: string, source: string): Promise<WorkoutsCompletedRow[]> {

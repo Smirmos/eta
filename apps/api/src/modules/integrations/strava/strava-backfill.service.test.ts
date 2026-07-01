@@ -46,12 +46,15 @@ function makeProfilesRepo(profileNull = true): AthleteProfileRepository {
   return { findByUserId: async () => (profileNull ? null : null) } as unknown as AthleteProfileRepository;
 }
 
-function makeWorkoutsRepo(): {
+function makeWorkoutsRepo(latestDate: string | null = null): {
   repo: WorkoutsCompletedRepository;
   upsertSpy: ReturnType<typeof vi.fn>;
 } {
   const upsertSpy = vi.fn(async (row: unknown) => row);
-  const repo = { upsert: upsertSpy } as unknown as WorkoutsCompletedRepository;
+  const repo = {
+    upsert: upsertSpy,
+    findLatestDateForUser: vi.fn(async () => latestDate),
+  } as unknown as WorkoutsCompletedRepository;
   return { repo, upsertSpy };
 }
 
@@ -123,6 +126,34 @@ describe('StravaBackfillService', () => {
     const svc = new StravaBackfillService(client, makeProfilesRepo(), workoutsRepo);
     const result = await svc.run(USER_ID, NOW);
     expect(result).toEqual({ userId: USER_ID, considered: 0, ingested: 0, skipped: 0, failed: 0 });
+  });
+
+  it('syncRecent lists from just before the latest stored activity (incremental)', async () => {
+    const { client, listSpy } = makeClient({
+      listPages: [[summary(1)], []],
+      detailByActivityId: (id) => detailedActivity(id, 'Ride'),
+    });
+    // Latest stored activity is 2026-05-28; sync should look back a 2-day buffer.
+    const { repo: workoutsRepo } = makeWorkoutsRepo('2026-05-28');
+    const svc = new StravaBackfillService(client, makeProfilesRepo(), workoutsRepo);
+
+    const result = await svc.syncRecent(USER_ID, NOW);
+
+    expect(result.ingested).toBe(1);
+    const listArgs = listSpy.mock.calls[0]![1] as { after: number };
+    const expectedAfter = Math.floor(Date.parse('2026-05-26T00:00:00Z') / 1000); // 28th − 2d buffer
+    expect(listArgs.after).toBe(expectedAfter);
+  });
+
+  it('syncRecent falls back to the full 90-day window when nothing is stored yet', async () => {
+    const { client, listSpy } = makeClient({ listPages: [[]], detailByActivityId: () => ({}) });
+    const { repo: workoutsRepo } = makeWorkoutsRepo(null);
+    const svc = new StravaBackfillService(client, makeProfilesRepo(), workoutsRepo);
+
+    await svc.syncRecent(USER_ID, NOW);
+
+    const listArgs = listSpy.mock.calls[0]![1] as { after: number };
+    expect(listArgs.after).toBe(Math.floor((NOW.getTime() - 90 * 86_400_000) / 1000));
   });
 
   it('trigger() returns immediately and runs the backfill async', async () => {

@@ -12,6 +12,7 @@ import { HealthController } from './common/health.controller.js';
 import { PlanGenerationModule } from './modules/plan-generation/plan-generation.module.js';
 import { AthleteProfileModule } from './modules/athlete-profile/athlete-profile.module.js';
 import { PlansModule } from './modules/plans/plans.module.js';
+import { TrainingModule } from './modules/training/training.module.js';
 import { StravaModule } from './modules/integrations/strava/strava.module.js';
 
 function optionalStravaModule(): DynamicModule[] {
@@ -32,6 +33,7 @@ function optionalStravaModule(): DynamicModule[] {
     PlanGenerationModule,
     AthleteProfileModule,
     PlansModule,
+    TrainingModule,
     ...optionalStravaModule(),
   ],
   controllers: [HealthController],

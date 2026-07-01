@@ -19,6 +19,7 @@
     "generate:test-plan": "node --import @swc-node/register/esm-register scripts/generate-test-plan.ts",
     "generate:test-week": "node --import @swc-node/register/esm-register scripts/generate-test-week.ts",
     "generate:test-adaptation": "node --import @swc-node/register/esm-register scripts/generate-test-adaptation.ts",
+    "generate:next-week": "node --import @swc-node/register/esm-register scripts/next-week.ts",
     "render:plan": "node --import @swc-node/register/esm-register scripts/render-plan.ts",
     "render:tree": "node --import @swc-node/register/esm-register scripts/render-tree.ts",
     "strava:backfill": "node --import @swc-node/register/esm-register scripts/strava-backfill.ts",

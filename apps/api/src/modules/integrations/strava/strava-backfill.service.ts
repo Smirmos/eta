@@ -7,6 +7,8 @@ import { normalizeStravaActivity } from './strava-normalizer.js';
 
 const BACKFILL_DAYS = 90;
 const PAGE_SIZE = 30;
+/** Re-pull this many days before the latest stored activity, to catch edits and late uploads. */
+const SYNC_OVERLAP_DAYS = 2;
 
 /** Sparse subset of SummaryActivity — only `id` is needed for the detail fetch. */
 const summaryActivitySchema = z.object({ id: z.number().int() });
@@ -40,14 +42,35 @@ export class StravaBackfillService {
   }
 
   /**
-   * Synchronous core. Pulls every activity in the trailing 90 days, paginated,
-   * normalises each one, and upserts. Idempotent — re-running upserts on
-   * (source, external_id) without duplication.
+   * Incremental sync: pull only activities newer than the latest one already
+   * stored (minus a small overlap buffer for edits / late uploads). Falls back
+   * to a full {@link run} when nothing is stored yet. Cheap — typically a
+   * handful of API calls — so it is safe to run on a short schedule.
    */
-  async run(userId: string, now: Date = new Date()): Promise<BackfillResult> {
-    const afterUnix = Math.floor((now.getTime() - BACKFILL_DAYS * 86_400_000) / 1000);
+  async syncRecent(userId: string, now: Date = new Date()): Promise<BackfillResult> {
+    const latest = await this.workoutsRepo.findLatestDateForUser(userId);
+    if (latest === null) return this.run(userId, now);
+    const afterUnix = Math.floor(
+      (Date.parse(`${latest}T00:00:00Z`) - SYNC_OVERLAP_DAYS * 86_400_000) / 1000,
+    );
+    return this.run(userId, now, { afterUnix });
+  }
+
+  /**
+   * Synchronous core. Pulls every activity in the trailing 90 days (or since
+   * `opts.afterUnix` when given), paginated, normalises each one, and upserts.
+   * Idempotent — re-running upserts on (source, external_id) without duplication.
+   */
+  async run(
+    userId: string,
+    now: Date = new Date(),
+    opts: { afterUnix?: number } = {},
+  ): Promise<BackfillResult> {
+    const afterUnix =
+      opts.afterUnix ?? Math.floor((now.getTime() - BACKFILL_DAYS * 86_400_000) / 1000);
     this.logger.log(
-      `Strava backfill starting for user ${userId} — ${BACKFILL_DAYS} days back (after=${afterUnix}).`,
+      `Strava backfill starting for user ${userId} — after=${afterUnix}` +
+        `${opts.afterUnix === undefined ? ` (${BACKFILL_DAYS} days back)` : ' (incremental)'}.`,
     );
 
     const profile = await this.profilesRepo.findByUserId(userId);

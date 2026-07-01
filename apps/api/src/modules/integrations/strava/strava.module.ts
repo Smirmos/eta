@@ -10,6 +10,7 @@ import { StravaClientService } from './strava-client.service.js';
 import { StravaController } from './strava.controller.js';
 import { StravaEventService } from './strava-event.service.js';
 import { StravaOAuthService } from './strava-oauth.service.js';
+import { StravaSyncScheduler } from './strava-sync.scheduler.js';
 
 @Module({
   imports: [DbModule],
@@ -32,6 +33,12 @@ import { StravaOAuthService } from './strava-oauth.service.js';
     },
     StravaEventService,
     StravaBackfillService,
+    {
+      provide: StravaSyncScheduler,
+      inject: [ConfigService, StravaBackfillService],
+      useFactory: (config: ConfigService<Env, true>, backfill: StravaBackfillService) =>
+        new StravaSyncScheduler(config, backfill),
+    },
   ],
   exports: [StravaBackfillService, StravaClientService, StravaOAuthService],
 })

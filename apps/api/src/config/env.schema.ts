@@ -35,6 +35,12 @@ export const envSchema = z.object({
   STRAVA_API_BASE: z.string().url().default('https://www.strava.com/api/v3'),
   STRAVA_OAUTH_BASE: z.string().url().default('https://www.strava.com'),
 
+  // Background incremental sync (keeps the DB fresh without a live webhook).
+  // When STRAVA_ENABLED, the scheduler runs once on boot and then every N
+  // minutes, pulling only activities newer than the latest stored one. Set to
+  // 0 to disable the scheduler entirely (manual `pnpm strava:backfill` only).
+  STRAVA_SYNC_INTERVAL_MINUTES: z.coerce.number().int().min(0).default(60),
+
   // v1 has no users table — the Strava-connecting athlete is keyed by this
   // hardcoded uuid. Replace with a real users table once auth lands.
   DEV_USER_ID: z.string().uuid().default('00000000-0000-0000-0000-000000000001'),
