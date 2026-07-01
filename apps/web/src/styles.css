@@ -958,6 +958,8 @@ button:active {
 
 .nwb-head { display: flex; flex-direction: column; gap: 10px; }
 .nwb-top { display: flex; align-items: center; gap: 10px; }
+.nwb-top .phase-tag { font-family: var(--font-mono); font-size: 12px; text-transform: uppercase; letter-spacing: 0.08em; color: var(--volt); border: 1px solid var(--line-2); border-radius: 999px; padding: 2px 10px; }
+.nwb-top .recovery-tag { font-family: var(--font-mono); font-size: 12px; text-transform: uppercase; letter-spacing: 0.08em; color: var(--cyan); }
 .nwb-vol { font-family: 'Bebas Neue', sans-serif; font-size: 2rem; color: var(--volt); line-height: 1; }
 .nwb-bar { display: flex; height: 8px; border-radius: 4px; overflow: hidden; background: rgba(255,255,255,0.06); }
 .nwb-seg { height: 100%; }
@@ -967,7 +969,7 @@ button:active {
 .nwb-why { margin: 0; font-size: 0.8rem; color: rgba(255,255,255,0.6); }
 .nwb-notes { margin: 0; padding: 12px 14px; border-left: 3px solid var(--volt); background: var(--volt-glow); border-radius: 6px; font-size: 0.9rem; }
 
-.nwb-disc { display: flex; flex-direction: column; gap: 10px; }
+.nwb-disc { display: flex; flex-direction: column; gap: 10px; padding-left: 12px; }
 .nwb-disc.disc-swim { border-left: 3px solid var(--cyan); }
 .nwb-disc.disc-bike { border-left: 3px solid var(--volt); }
 .nwb-disc.disc-run  { border-left: 3px solid var(--amber); }

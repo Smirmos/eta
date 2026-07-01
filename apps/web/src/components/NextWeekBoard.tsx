@@ -19,7 +19,7 @@ export function NextWeekBoard({
       <header className="nwb-head panel">
         <div className="nwb-top">
           <span className="nwb-vol">~{frame.targetVolumeHours}h</span>
-          <span className={`phase-tag phase-${frame.phase}`}>{frame.phase}</span>
+          <span className={`phase-tag phase-${frame.phase}`}>{frame.phase.replace(/_/g, ' ')}</span>
           {frame.isRecoveryWeek ? <span className="recovery-tag">recovery</span> : null}
         </div>
         <div className="nwb-bar" role="presentation">

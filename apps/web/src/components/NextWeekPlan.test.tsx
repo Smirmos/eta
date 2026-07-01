@@ -9,7 +9,7 @@ test('shows a Generate button and renders the week after clicking', async () => 
   render(<NextWeekPlan fetchNextWeekImpl={ok} />);
   const btn = screen.getByRole('button', { name: /generate next week/i });
   fireEvent.click(btn);
-  await waitFor(() => expect(screen.getByText(/build_1/i)).toBeInTheDocument());
+  await waitFor(() => expect(screen.getByText(/long ride/i)).toBeInTheDocument());
   expect(screen.getAllByText(/12\.5/).length).toBeGreaterThan(0); // target volume in the "why" strip
 });
 
@@ -24,14 +24,14 @@ test('calls the fetcher exactly once per click (no render loop)', async () => {
   const spy = vi.fn(ok);
   render(<NextWeekPlan fetchNextWeekImpl={spy} />);
   fireEvent.click(screen.getByRole('button', { name: /generate next week/i }));
-  await waitFor(() => expect(screen.getByText(/build_1/i)).toBeInTheDocument());
+  await waitFor(() => expect(screen.getByText(/long ride/i)).toBeInTheDocument());
   expect(spy).toHaveBeenCalledTimes(1);
 });
 
 test('renders discipline sections with totals, session type, segment description, and rationale', async () => {
   render(<NextWeekPlan fetchNextWeekImpl={ok} />);
   fireEvent.click(screen.getByRole('button', { name: /generate next week/i }));
-  await waitFor(() => expect(screen.getByText(/build_1/i)).toBeInTheDocument());
+  await waitFor(() => expect(screen.getByText(/long ride/i)).toBeInTheDocument());
   // discipline section headers
   expect(screen.getByText(/^swim$/i)).toBeInTheDocument();
   expect(screen.getByText(/^bike$/i)).toBeInTheDocument();
