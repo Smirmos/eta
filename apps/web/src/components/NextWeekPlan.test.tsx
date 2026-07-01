@@ -27,3 +27,19 @@ test('calls the fetcher exactly once per click (no render loop)', async () => {
   await waitFor(() => expect(screen.getByText(/build_1/i)).toBeInTheDocument());
   expect(spy).toHaveBeenCalledTimes(1);
 });
+
+test('renders discipline sections with totals, session type, segment description, and rationale', async () => {
+  render(<NextWeekPlan fetchNextWeekImpl={ok} />);
+  fireEvent.click(screen.getByRole('button', { name: /generate next week/i }));
+  await waitFor(() => expect(screen.getByText(/build_1/i)).toBeInTheDocument());
+  // discipline section headers
+  expect(screen.getByText(/^swim$/i)).toBeInTheDocument();
+  expect(screen.getByText(/^bike$/i)).toBeInTheDocument();
+  expect(screen.getByText(/^run$/i)).toBeInTheDocument();
+  // a derived session type label (bike long ride, sun)
+  expect(screen.getByText(/long ride/i)).toBeInTheDocument();
+  // a segment description surfaced (was dropped before)
+  expect(screen.getByText(/8x100 at threshold/i)).toBeInTheDocument();
+  // a per-session recommendation (rationale)
+  expect(screen.getByText(/build the bike base/i)).toBeInTheDocument();
+});
