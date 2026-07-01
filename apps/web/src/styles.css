@@ -991,6 +991,12 @@ button:active {
 .nwb-segment { display: grid; grid-template-columns: 1fr auto auto; gap: 8px; align-items: baseline; font-size: 0.82rem; }
 .nwb-seg-label { color: rgba(255,255,255,0.85); }
 .nwb-seg-dur { color: rgba(255,255,255,0.55); }
-.nwb-seg-zone { font-size: 0.68rem; text-transform: uppercase; letter-spacing: 0.04em; color: rgba(255,255,255,0.6); background: rgba(255,255,255,0.06); padding: 1px 5px; border-radius: 3px; }
+.nwb-seg-zone { font-size: 0.68rem; text-transform: uppercase; letter-spacing: 0.04em; color: rgba(255,255,255,0.6); background: rgba(255,255,255,0.06); border: 1px solid transparent; padding: 1px 5px; border-radius: 3px; }
+/* Intensity ramp: easy (cool) → hard (warm). */
+.nwb-seg-zone.zone-easy, .nwb-seg-zone.zone-z1 { color: var(--cyan); border-color: rgba(70,214,198,0.4); }
+.nwb-seg-zone.zone-z2 { color: var(--green); border-color: rgba(95,208,138,0.4); }
+.nwb-seg-zone.zone-z3 { color: var(--amber); border-color: rgba(245,183,64,0.4); }
+.nwb-seg-zone.zone-z4 { color: var(--red); border-color: rgba(255,111,96,0.4); }
+.nwb-seg-zone.zone-z5a, .nwb-seg-zone.zone-z5b, .nwb-seg-zone.zone-z5c { color: var(--red); border-color: rgba(255,111,96,0.6); font-weight: 700; }
 .nwb-seg-desc { grid-column: 1 / -1; color: rgba(255,255,255,0.5); font-size: 0.78rem; }
 .nwb-rationale { margin: 8px 0 0; font-size: 0.82rem; color: rgba(255,255,255,0.65); font-style: italic; }
